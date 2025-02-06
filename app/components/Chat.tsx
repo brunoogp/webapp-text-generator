@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, PlusCircle, Send } from "lucide-react";
 
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = false;
+  const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<string[]>(["Conversa 1"]);
   const [activeChat, setActiveChat] = useState(0);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null); // 🔥 Mantém o ID da conversa
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -21,22 +21,25 @@ export default function Chat() {
     try {
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           query: input,
-          conversation_id: conversationId, // ✅ Mantendo o histórico
+          conversation_id: conversationId, // ✅ Mantendo o contexto da conversa
         }),
       });
 
       const data = await response.json();
 
-      if (data.conversation_id) {
-        setConversationId(data.conversation_id); // ✅ Salva o ID da conversa
+      if (data.error) {
+        console.error("Erro da API:", data.error);
+        return;
       }
 
       setMessages([...newMessages, { role: "bot", content: data.response }]);
+
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id); // 🔥 Atualiza o ID da conversa
+      }
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
@@ -47,6 +50,7 @@ export default function Chat() {
 
   return (
     <div className="flex h-screen w-screen bg-black text-white">
+      {/* Menu Lateral */}
       <aside className="w-64 bg-gray-900 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
@@ -55,11 +59,10 @@ export default function Chat() {
         <button
           className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
           onClick={() => {
-            const newChatIndex = history.length;
-            setHistory([...history, `Conversa ${newChatIndex + 1}`]);
-            setActiveChat(newChatIndex);
-            setMessages([]); 
-            setConversationId(null); // 🔥 Zera a conversa para começar uma nova
+            setActiveChat(history.length);
+            setHistory([...history, `Conversa ${history.length + 1}`]);
+            setMessages([]); // ✅ Limpa a tela para uma nova conversa
+            setConversationId(null); // 🔥 Reseta o ID da conversa
           }}
         >
           <PlusCircle size={18} /> Nova conversa
@@ -73,8 +76,8 @@ export default function Chat() {
               }`}
               onClick={() => {
                 setActiveChat(index);
-                setMessages([]);
-                setConversationId(null);
+                setMessages([]); // 🔥 Troca de conversa
+                setConversationId(null); // ❌ Reseta o ID para evitar conflitos
               }}
             >
               {item}
@@ -83,6 +86,7 @@ export default function Chat() {
         </div>
       </aside>
 
+      {/* Área do Chat */}
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((msg, index) => (
@@ -98,6 +102,7 @@ export default function Chat() {
           {loading && <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
+        {/* Campo de Entrada */}
         <div className="p-4 bg-gray-900 flex w-full">
           <input
             type="text"
