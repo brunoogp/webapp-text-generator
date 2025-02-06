@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
-// 🔥 Armazena temporariamente os conversation_id
+// 🔥 Armazena os conversation_id por usuário
 const userConversations: { [key: string]: string } = {};
 
 export async function POST(req: NextRequest) {
@@ -12,16 +12,40 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        // 🔥 Identificação do usuário (idealmente, use um ID real de usuário autenticado)
-        const userId = "teste-123"; 
+        // 🔥 ID de usuário (idealmente, use um ID real do usuário autenticado)
+        const userId = "teste-123";
 
-        // 🔥 Se reset for true ou o usuário não tem uma conversa ativa, cria um novo ID
-        if (requestData.reset || !userConversations[userId]) {
-            userConversations[userId] = uuidv4();
+        // 🔥 Se `reset` for true, criar uma nova conversa
+        if (requestData.reset) {
+            const newConversationResponse = await fetch("https://api.dify.ai/v1/conversations", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer SEU_TOKEN_AQUI", // 🔥 Substituir pelo token correto
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    user: userId,
+                })
+            });
+
+            const newConversationData = await newConversationResponse.json();
+
+            if (!newConversationResponse.ok) {
+                return NextResponse.json({ error: `Erro ao criar nova conversa: ${newConversationData.message || newConversationResponse.statusText}` }, { status: newConversationResponse.status });
+            }
+
+            // 🔥 Salva o novo `conversation_id`
+            userConversations[userId] = newConversationData.id;
         }
 
-        const conversationId = userConversations[userId]; // Mantém o mesmo ID para continuidade
+        // 🔥 Recupera o `conversation_id` armazenado
+        const conversationId = userConversations[userId];
 
+        if (!conversationId) {
+            return NextResponse.json({ error: "Erro ao obter conversation_id." }, { status: 500 });
+        }
+
+        // 🔥 Enviar mensagem com o conversation_id
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
             headers: {
@@ -31,9 +55,9 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
-                response_mode: "streaming", // ✅ Corrigido para "streaming"
+                response_mode: "streaming",
                 user: userId,
-                conversation_id: conversationId 
+                conversation_id: conversationId
             })
         });
 
@@ -42,7 +66,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Leitura do streaming de resposta corretamente
+        // 🔥 Leitura correta da resposta streaming
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let fullResponse = "";
@@ -53,13 +77,13 @@ export async function POST(req: NextRequest) {
             fullResponse += decoder.decode(value, { stream: true });
         }
 
-        // 🔥 Extrair apenas o conteúdo relevante da resposta
+        // 🔥 Extração da resposta correta
         const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
         const cleanedResponse = matches
             ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
             : 'Erro ao processar resposta.';
 
-        // 🔥 Corrige caracteres especiais na resposta
+        // 🔥 Decodifica caracteres especiais corretamente
         const decodedResponse = JSON.parse(`{"text": "${cleanedResponse}"}`).text;
 
         return NextResponse.json({ response: decodedResponse, conversation_id: conversationId });
