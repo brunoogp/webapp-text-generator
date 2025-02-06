@@ -40,16 +40,16 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Extraindo apenas a resposta relevante da stream
+        // Extraindo apenas os campos "answer" corretamente
         const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
         const cleanedResponse = matches
             ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
             : 'Erro ao processar resposta.';
 
-        // 🔥 Decodifica caracteres unicode corretamente
-        const decodedResponse = JSON.parse(`{"text": "${cleanedResponse}"}`).text;
+        // 🔥 Remove espaços extras entre as palavras e formata corretamente
+        const formattedResponse = cleanedResponse.replace(/\s+/g, ' ').trim();
 
-        return NextResponse.json({ response: decodedResponse });
+        return NextResponse.json({ response: formattedResponse });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
