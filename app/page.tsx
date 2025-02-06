@@ -1,11 +1,9 @@
-import React from 'react'
+import Chat from "./components/Chat";
 
-import Main from '@/app/components'
-
-const App = () => {
+export default function Home() {
   return (
-    <Main />
-  )
+    <div className="flex justify-center items-center h-screen bg-gray-100">
+      <Chat />
+    </div>
+  );
 }
-
-export default React.memo(App)
