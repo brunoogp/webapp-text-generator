@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
         const payload = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming", // 🔥 Garante resposta contínua
+            response_mode: "streaming",
             conversation_id: conversationId || "",
             user: "user-123",
         };
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Lendo a resposta completa antes de processar
+        // 🔥 Coletando a resposta completa antes de exibir
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
@@ -62,9 +62,10 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 🔥 Corrige palavras separadas, remove espaços antes de pontuação
+        // 🔥 Ajuste para evitar palavras quebradas
+        finalResponse = finalResponse.replace(/(\w)-\s(\w)/g, "$1$2"); // Junta palavras separadas por hífen
         finalResponse = finalResponse.replace(/\s([.,!?;])/g, "$1"); // Remove espaços antes de pontuação
-        finalResponse = finalResponse.replace(/\s+/g, " "); // Remove espaços duplos
+        finalResponse = finalResponse.replace(/\s+/g, " "); // Remove espaços extras
         finalResponse = finalResponse.trim();
 
         return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
