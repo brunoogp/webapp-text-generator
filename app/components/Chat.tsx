@@ -4,17 +4,22 @@ import { useState } from "react";
 import { Menu, PlusCircle, Send } from "lucide-react";
 
 export default function Chat() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [chats, setChats] = useState<{ id: string; messages: { role: string; content: string }[] }[]>([
+    { id: crypto.randomUUID(), messages: [] },
+  ]);
+  const [activeChatIndex, setActiveChatIndex] = useState(0);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
-  const [activeChat, setActiveChat] = useState(0);
+
+  const activeChat = chats[activeChatIndex];
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
+    const updatedMessages = [...activeChat.messages, { role: "user", content: input }];
+    const updatedChats = [...chats];
+    updatedChats[activeChatIndex].messages = updatedMessages;
+    setChats(updatedChats);
     setLoading(true);
 
     try {
@@ -23,18 +28,29 @@ export default function Chat() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: input }),
+        body: JSON.stringify({
+          query: input,
+          chatId: activeChat.id,
+          history: updatedMessages, // Enviando o histórico da conversa ao Dify
+        }),
       });
 
       const data = await response.json();
 
-      setMessages([...newMessages, { role: "bot", content: data.response }]);
+      updatedChats[activeChatIndex].messages = [...updatedMessages, { role: "bot", content: data.response }];
+      setChats(updatedChats);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
 
     setInput("");
     setLoading(false);
+  };
+
+  const createNewChat = () => {
+    const newChat = { id: crypto.randomUUID(), messages: [] };
+    setChats([...chats, newChat]);
+    setActiveChatIndex(chats.length);
   };
 
   return (
@@ -47,20 +63,20 @@ export default function Chat() {
         </div>
         <button
           className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-          onClick={() => setHistory([...history, `Conversa ${history.length + 1}`])}
+          onClick={createNewChat}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {history.map((item, index) => (
+          {chats.map((chat, index) => (
             <div
-              key={index}
+              key={chat.id}
               className={`p-2 rounded-lg cursor-pointer transition ${
-                activeChat === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
+                activeChatIndex === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
               }`}
-              onClick={() => setActiveChat(index)}
+              onClick={() => setActiveChatIndex(index)}
             >
-              {item}
+              Conversa {index + 1}
             </div>
           ))}
         </div>
@@ -69,7 +85,7 @@ export default function Chat() {
       {/* Área do Chat */}
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((msg, index) => (
+          {activeChat.messages.map((msg, index) => (
             <div
               key={index}
               className={`p-3 rounded-lg max-w-lg ${
