@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
     try {
-        const requestData = await req.json(); // Captura os dados da requisição
+        const requestData = await req.json();
 
-        // Verifica se a query foi enviada corretamente
         if (!requestData.query) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
@@ -12,13 +11,13 @@ export async function POST(req: NextRequest) {
         const response = await fetch('https://api.dify.ai/v1/chat-messages', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr',  // 🔴 Substitua pelo token correto!
+                'Authorization': 'Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr',  // Substitua pelo token correto
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                inputs: {},  
+                inputs: {},
                 query: requestData.query,
-                response_mode: "streaming",  // ✅ Alterado para STREAMING
+                response_mode: "streaming",
                 user: "teste-123"
             })
         });
@@ -30,17 +29,23 @@ export async function POST(req: NextRequest) {
 
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
-        let result = "";
+        let fullResponse = "";
 
         if (reader) {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                result += decoder.decode(value, { stream: true });
+
+                const chunk = decoder.decode(value, { stream: true });
+                fullResponse += chunk;
             }
         }
 
-        return NextResponse.json({ response: result });
+        // Extraindo apenas a resposta relevante da stream
+        const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
+        const cleanedResponse = matches ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ') : 'Erro ao processar resposta.';
+
+        return NextResponse.json({ response: cleanedResponse });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
