@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
-                response_mode: "streaming",
+                response_mode: "blocking",
                 user: "teste-123"
             })
         });
@@ -27,26 +27,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let fullResponse = "";
+        const data = await response.json();
 
-        if (reader) {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+        // 🔥 Extraindo resposta limpa da chave "response"
+        let cleanedResponse = data.response || '';
 
-                fullResponse += decoder.decode(value, { stream: true });
-            }
-        }
-
-        // 🔥 Extraindo apenas os valores de "answer"
-        const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
-        const cleanedResponse = matches
-            ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
-            : 'Erro ao processar resposta.';
-
-        // 🔥 Normaliza caracteres Unicode e remove espaços extras
+        // 🔥 Normaliza caracteres Unicode, remove espaços extras e ajusta formatação
         const formattedResponse = cleanedResponse
             .normalize("NFC")  // Corrige problemas de encoding
             .replace(/\s+/g, ' ') // Remove espaços duplicados
