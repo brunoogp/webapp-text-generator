@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         }
 
         const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
+        const decoder = new TextDecoder('utf-8');  // 🔥 Decodifica corretamente
         let fullResponse = "";
 
         if (reader) {
