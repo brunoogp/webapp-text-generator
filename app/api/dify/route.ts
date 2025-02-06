@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId: string | null = null; // 🔥 Armazena o ID da conversa para continuidade
+let conversationId = ""; // 🔥 Armazena o ID da conversa para manter o contexto
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,29 +10,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        // 🔥 Resetar conversa se for solicitado
-        if (requestData.reset) {
-            conversationId = null;
-        }
-
-        // 🚀 Montando o payload da requisição para Dify
-        const payload: any = {
+        // 🚀 Se não houver um ID salvo, deixa vazio para criar um novo
+        const payload = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming", // ✅ Mantendo streaming para evitar blocking mode
+            response_mode: "streaming", // 🔥 Garante que está usando streaming
+            conversation_id: conversationId || "", // 🔥 Mantém o contexto da conversa
             user: "user-123",
         };
 
-        // ✅ Se já tivermos um `conversationId`, adicionamos ao payload para manter o histórico
-        if (conversationId) {
-            payload.conversation_id = conversationId;
-        }
-
-        // 🔥 Fazendo a requisição para o Dify
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
             headers: {
-                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // ⚠️ Substitua pelo seu token correto!
+                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr",
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(payload),
@@ -43,43 +33,35 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Processando a resposta em STREAMING
+        // 🔥 Lendo a resposta em streaming corretamente
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let fullResponse = "";
+        let finalResponse = "";
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            fullResponse += decoder.decode(value, { stream: true });
-        }
+            const chunk = decoder.decode(value, { stream: true });
 
-        // 🔥 Extraindo a resposta do formato correto da API do Dify
-        const responseParts = fullResponse.split("\n").filter(line => line.trim().startsWith("data: "));
-        let finalResponse = "";
-
-        responseParts.forEach(part => {
-            try {
-                const jsonPart = JSON.parse(part.replace("data: ", "").trim());
-                if (jsonPart.answer) {
-                    finalResponse += jsonPart.answer + " ";
+            // 🔥 O Dify retorna dados no formato `data: {...}`, precisamos extrair só o JSON
+            const match = chunk.match(/data:\s*({.*})/);
+            if (match) {
+                try {
+                    const jsonData = JSON.parse(match[1]);
+                    if (jsonData.answer) {
+                        finalResponse += jsonData.answer + " ";
+                    }
+                    if (jsonData.conversation_id) {
+                        conversationId = jsonData.conversation_id; // 🔥 Salva o ID da conversa para continuidade
+                    }
+                } catch (error) {
+                    console.error("Erro ao processar JSON da resposta:", error);
                 }
-            } catch (e) {
-                console.error("Erro ao processar parte da resposta:", e);
             }
-        });
-
-        // ✅ Armazena o `conversation_id` para continuidade da conversa
-        const responseData = JSON.parse(fullResponse);
-        if (responseData.conversation_id) {
-            conversationId = responseData.conversation_id;
         }
 
-        return NextResponse.json({
-            response: finalResponse.trim() || "Erro ao processar resposta.",
-            conversation_id,
-        });
+        return NextResponse.json({ response: finalResponse.trim(), conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
