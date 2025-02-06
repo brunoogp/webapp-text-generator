@@ -11,13 +11,13 @@ export async function POST(req: NextRequest) {
         const response = await fetch('https://api.dify.ai/v1/chat-messages', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr', // Substitua pelo token correto
+                'Authorization': 'Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr', // Substitua pelo seu token correto
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
-                response_mode: "blocking",
+                response_mode: "streaming", // 🚀 ALTERADO PARA STREAMING
                 user: "teste-123"
             })
         });
@@ -27,12 +27,25 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        const data = await response.json();
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let fullResponse = "";
 
-        // 🔥 Extraindo resposta limpa da chave "response"
-        let cleanedResponse = data.response || '';
+        if (reader) {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                fullResponse += decoder.decode(value, { stream: true });
+            }
+        }
 
-        // 🔥 Normaliza caracteres Unicode, remove espaços extras e ajusta formatação
+        // 🔥 Extraindo apenas os valores de "answer"
+        const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
+        const cleanedResponse = matches
+            ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
+            : 'Erro ao processar resposta.';
+
+        // 🔥 Normaliza caracteres Unicode e remove espaços extras
         const formattedResponse = cleanedResponse
             .normalize("NFC")  // Corrige problemas de encoding
             .replace(/\s+/g, ' ') // Remove espaços duplicados
