@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Armazena o ID da conversa para manter o contexto
+let conversationId = ""; // 🔥 Mantém a continuidade da conversa
 
 export async function POST(req: NextRequest) {
     try {
@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
         const payload = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming", // 🔥 Garante que está usando streaming
-            conversation_id: conversationId || "", // 🔥 Mantém o contexto da conversa
+            response_mode: "streaming",
+            conversation_id: conversationId || "",
             user: "user-123",
         };
 
@@ -61,7 +61,13 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        return NextResponse.json({ response: finalResponse.trim(), conversation_id: conversationId });
+        // 🔥 Melhorando a formatação da resposta
+        finalResponse = finalResponse
+            .replace(/\s{2,}/g, " ") // Remove múltiplos espaços
+            .replace(/\s([\.,!?:])/g, "$1") // Remove espaços antes de pontuação
+            .trim();
+
+        return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
