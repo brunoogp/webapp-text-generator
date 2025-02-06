@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId: string | null = null; // 🔥 Inicializa corretamente
+let conversationId: string | null = null; // 🔥 Armazena o ID da conversa para continuidade
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,29 +10,29 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        // 🚀 Se `reset` for true, inicia uma nova conversa e define `conversationId` como `null`
+        // 🔥 Resetar conversa se for solicitado
         if (requestData.reset) {
             conversationId = null;
         }
 
-        // 🔥 Monta o payload da requisição para o Dify
+        // 🚀 Montando o payload da requisição para Dify
         const payload: any = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming", // ✅ Agora está correto
+            response_mode: "streaming", // ✅ Mantendo streaming para evitar blocking mode
             user: "user-123",
         };
 
-        // 🔥 Se já tivermos um conversationId, adicionamos ao payload para manter o contexto
+        // ✅ Se já tivermos um `conversationId`, adicionamos ao payload para manter o histórico
         if (conversationId) {
             payload.conversation_id = conversationId;
         }
 
-        // 🚀 Fazendo a requisição para o Dify
+        // 🔥 Fazendo a requisição para o Dify
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
             headers: {
-                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr",
+                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // ⚠️ Substitua pelo seu token correto!
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(payload),
@@ -55,11 +55,20 @@ export async function POST(req: NextRequest) {
             fullResponse += decoder.decode(value, { stream: true });
         }
 
-        // 🔥 Extraindo apenas a resposta relevante da stream
-        const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
-        const cleanedResponse = matches
-            ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
-            : 'Erro ao processar resposta.';
+        // 🔥 Extraindo a resposta do formato correto da API do Dify
+        const responseParts = fullResponse.split("\n").filter(line => line.trim().startsWith("data: "));
+        let finalResponse = "";
+
+        responseParts.forEach(part => {
+            try {
+                const jsonPart = JSON.parse(part.replace("data: ", "").trim());
+                if (jsonPart.answer) {
+                    finalResponse += jsonPart.answer + " ";
+                }
+            } catch (e) {
+                console.error("Erro ao processar parte da resposta:", e);
+            }
+        });
 
         // ✅ Armazena o `conversation_id` para continuidade da conversa
         const responseData = JSON.parse(fullResponse);
@@ -67,9 +76,9 @@ export async function POST(req: NextRequest) {
             conversationId = responseData.conversation_id;
         }
 
-        return NextResponse.json({ 
-            response: cleanedResponse || "Erro ao obter resposta.", 
-            conversation_id 
+        return NextResponse.json({
+            response: finalResponse.trim() || "Erro ao processar resposta.",
+            conversation_id,
         });
 
     } catch (error) {
