@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
         const payload: any = {
             inputs: {},
             query: requestData.query,
-            response_mode: "blocking", // ⚠️ Alterado para "blocking" para garantir resposta completa
+            response_mode: "streaming", // ✅ Agora está correto
             user: "user-123",
         };
 
@@ -38,21 +38,37 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify(payload),
         });
 
-        if (!response.ok) {
+        if (!response.ok || !response.body) {
             const errorData = await response.json();
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Pegamos a resposta JSON do Dify
-        const responseData = await response.json();
+        // 🔥 Processando a resposta em STREAMING
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullResponse = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            fullResponse += decoder.decode(value, { stream: true });
+        }
+
+        // 🔥 Extraindo apenas a resposta relevante da stream
+        const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
+        const cleanedResponse = matches
+            ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
+            : 'Erro ao processar resposta.';
 
         // ✅ Armazena o `conversation_id` para continuidade da conversa
+        const responseData = JSON.parse(fullResponse);
         if (responseData.conversation_id) {
             conversationId = responseData.conversation_id;
         }
 
         return NextResponse.json({ 
-            response: responseData.answer || "Erro ao obter resposta.", 
+            response: cleanedResponse || "Erro ao obter resposta.", 
             conversation_id 
         });
 
