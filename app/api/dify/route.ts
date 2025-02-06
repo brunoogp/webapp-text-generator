@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
-                response_mode: "blocking", // streaming pode ser mantido se quiser respostas ao vivo
+                response_mode: "streaming", // streaming pode ser mantido se quiser respostas ao vivo
                 user: "teste-123",
                 conversation_id: requestData.chatId, // Enviar ID da conversa
                 messages: requestData.history || [] // Enviar histórico das mensagens
