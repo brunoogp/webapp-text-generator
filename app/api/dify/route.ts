@@ -17,8 +17,10 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
-                response_mode: "streaming",
-                user: "teste-123"
+                response_mode: "blocking", // streaming pode ser mantido se quiser respostas ao vivo
+                user: "teste-123",
+                conversation_id: requestData.chatId, // Enviar ID da conversa
+                messages: requestData.history || [] // Enviar histórico das mensagens
             })
         });
 
@@ -27,29 +29,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let fullResponse = "";
+        const data = await response.json();
 
-        if (reader) {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                fullResponse += decoder.decode(value, { stream: true });
-            }
-        }
-
-        // Extraindo apenas a resposta relevante da stream
-        const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
-        const cleanedResponse = matches
-            ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
-            : 'Erro ao processar resposta.';
-
-        // 🔥 Decodifica caracteres unicode corretamente
-        const decodedResponse = JSON.parse(`{"text": "${cleanedResponse}"}`).text;
-
-        return NextResponse.json({ response: decodedResponse });
+        return NextResponse.json({ response: data.answer });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
