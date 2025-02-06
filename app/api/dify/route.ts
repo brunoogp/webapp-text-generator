@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
-
-// 🔥 Armazena os conversation_id por usuário
-const userConversations: { [key: string]: string } = {};
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,53 +8,26 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        // 🔥 ID de usuário (idealmente, use um ID real do usuário autenticado)
-        const userId = "teste-123";
+        // 🔥 Se reset for true, iniciamos uma nova conversa sem um conversation_id
+        const body = {
+            inputs: {},
+            query: requestData.query,
+            response_mode: "streaming",
+            user: "teste-123",
+        };
 
-        // 🔥 Se `reset` for true, criar uma nova conversa
-        if (requestData.reset) {
-            const newConversationResponse = await fetch("https://api.dify.ai/v1/conversations", {
-                method: "POST",
-                headers: {
-                    "Authorization": "Bearer SEU_TOKEN_AQUI", // 🔥 Substituir pelo token correto
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    user: userId,
-                })
-            });
-
-            const newConversationData = await newConversationResponse.json();
-
-            if (!newConversationResponse.ok) {
-                return NextResponse.json({ error: `Erro ao criar nova conversa: ${newConversationData.message || newConversationResponse.statusText}` }, { status: newConversationResponse.status });
-            }
-
-            // 🔥 Salva o novo `conversation_id`
-            userConversations[userId] = newConversationData.id;
+        // 🔥 Só adicionamos o conversation_id se não for um reset
+        if (!requestData.reset && requestData.conversation_id) {
+            body["conversation_id"] = requestData.conversation_id;
         }
 
-        // 🔥 Recupera o `conversation_id` armazenado
-        const conversationId = userConversations[userId];
-
-        if (!conversationId) {
-            return NextResponse.json({ error: "Erro ao obter conversation_id." }, { status: 500 });
-        }
-
-        // 🔥 Enviar mensagem com o conversation_id
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
             headers: {
-                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // 🔥 Substituir pelo token correto
+                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // Substitua pelo seu token do Dify
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                inputs: {},
-                query: requestData.query,
-                response_mode: "streaming",
-                user: userId,
-                conversation_id: conversationId
-            })
+            body: JSON.stringify(body),
         });
 
         if (!response.ok || !response.body) {
@@ -86,7 +55,7 @@ export async function POST(req: NextRequest) {
         // 🔥 Decodifica caracteres especiais corretamente
         const decodedResponse = JSON.parse(`{"text": "${cleanedResponse}"}`).text;
 
-        return NextResponse.json({ response: decodedResponse, conversation_id: conversationId });
+        return NextResponse.json({ response: decodedResponse });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
