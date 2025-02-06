@@ -4,16 +4,19 @@ import { useState } from "react";
 import { Menu, PlusCircle, Send } from "lucide-react";
 
 export default function Chat() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [chats, setChats] = useState<{ title: string; messages: { role: string; content: string }[] }[]>([
+    { title: "Conversa 1", messages: [] },
+  ]);
+  const [activeChatIndex, setActiveChatIndex] = useState(0);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
+    const updatedChats = [...chats];
+    updatedChats[activeChatIndex].messages.push({ role: "user", content: input });
+    setChats(updatedChats);
     setLoading(true);
 
     try {
@@ -27,13 +30,20 @@ export default function Chat() {
 
       const data = await response.json();
 
-      setMessages([...newMessages, { role: "bot", content: data.response }]);
+      updatedChats[activeChatIndex].messages.push({ role: "bot", content: data.response });
+      setChats(updatedChats);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
 
     setInput("");
     setLoading(false);
+  };
+
+  const handleNewChat = () => {
+    const newChat = { title: `Conversa ${chats.length + 1}`, messages: [] };
+    setChats([...chats, newChat]);
+    setActiveChatIndex(chats.length);
   };
 
   return (
@@ -46,14 +56,20 @@ export default function Chat() {
         </div>
         <button
           className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
-          onClick={() => setHistory([...history, `Conversa ${history.length + 1}`])}
+          onClick={handleNewChat}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {history.map((item, index) => (
-            <div key={index} className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 cursor-pointer">
-              {item}
+          {chats.map((chat, index) => (
+            <div
+              key={index}
+              className={`p-2 rounded-lg cursor-pointer ${
+                index === activeChatIndex ? "bg-blue-500" : "bg-gray-700 hover:bg-gray-600"
+              }`}
+              onClick={() => setActiveChatIndex(index)}
+            >
+              {chat.title}
             </div>
           ))}
         </div>
@@ -62,7 +78,7 @@ export default function Chat() {
       {/* Área do Chat */}
       <div className="flex-1 flex flex-col">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((msg, index) => (
+          {chats[activeChatIndex].messages.map((msg, index) => (
             <div
               key={index}
               className={`p-3 rounded-lg max-w-lg ${
@@ -82,6 +98,12 @@ export default function Chat() {
             className="flex-1 bg-gray-700 text-white p-3 rounded-lg focus:outline-none"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
             placeholder="Digite sua mensagem..."
           />
           <button
