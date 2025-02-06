@@ -1,3 +1,5 @@
+"use client"; // Adicionado no topo para indicar que é um Client Component
+
 import { useState } from "react";
 
 export default function Chat() {
