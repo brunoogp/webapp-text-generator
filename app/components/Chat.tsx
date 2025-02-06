@@ -11,25 +11,25 @@ export default function Chat() {
   const [activeChat, setActiveChat] = useState(0);
   const [conversationIds, setConversationIds] = useState<{ [key: number]: string }>({});
 
-  // 🔥 Criar Nova Conversa
+  // Criar uma nova conversa corretamente
   const startNewConversation = async () => {
     setLoading(true);
-    setMessages([]); // Limpa a tela atual
+    setMessages([]);
 
     try {
       const response = await fetch("/api/dify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: "Iniciar nova conversa", reset: true })
+        body: JSON.stringify({ query: "Iniciar nova conversa", reset: true, chatKey: `chat-${Date.now()}` })
       });
 
       const data = await response.json();
 
       const newChatIndex = history.length;
-      setHistory([...history, `Conversa ${newChatIndex + 1}`]); // Adiciona a nova conversa no menu
+      setHistory([...history, `Conversa ${newChatIndex + 1}`]);
       setActiveChat(newChatIndex);
-      setConversationIds({ ...conversationIds, [newChatIndex]: data.conversation_id }); // Salva o ID da conversa
-      setMessages([{ role: "bot", content: data.response }]); // Exibe a resposta inicial
+      setConversationIds({ ...conversationIds, [newChatIndex]: data.conversation_id });
+      setMessages([{ role: "bot", content: data.response }]);
 
     } catch (error) {
       console.error("Erro ao iniciar nova conversa:", error);
@@ -38,7 +38,7 @@ export default function Chat() {
     setLoading(false);
   };
 
-  // ✉️ Enviar Mensagem
+  // Enviar mensagem com ID correto
   const sendMessage = async () => {
     if (!input.trim()) return;
 
@@ -47,15 +47,12 @@ export default function Chat() {
     setLoading(true);
 
     try {
-      const conversationId = conversationIds[activeChat]; // Obtém o ID da conversa ativa
+      const conversationId = conversationIds[activeChat];
 
       const response = await fetch("/api/dify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          query: input,
-          conversation_id: conversationId // 🔥 Mantém o contexto da conversa correta
-        }),
+        body: JSON.stringify({ query: input, conversation_id: conversationId, chatKey: `chat-${activeChat}` }),
       });
 
       const data = await response.json();
@@ -79,7 +76,7 @@ export default function Chat() {
         </div>
         <button
           className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-          onClick={startNewConversation} // 🔥 Agora cria uma nova conversa corretamente
+          onClick={startNewConversation}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
@@ -90,10 +87,7 @@ export default function Chat() {
               className={`p-2 rounded-lg cursor-pointer transition ${
                 activeChat === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
               }`}
-              onClick={() => {
-                setActiveChat(index);
-                setMessages([]); // Limpa a tela, mas mantém a conversa no Dify
-              }}
+              onClick={() => setActiveChat(index)}
             >
               {item}
             </div>
@@ -117,20 +111,9 @@ export default function Chat() {
           {loading && <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
-        {/* Campo de Entrada */}
         <div className="p-4 bg-gray-900 flex w-full">
-          <input
-            type="text"
-            className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Digite sua mensagem..."
-          />
-          <button
-            className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
-            onClick={sendMessage}
-            disabled={loading}
-          >
+          <input type="text" className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Digite sua mensagem..." />
+          <button className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2" onClick={sendMessage} disabled={loading}>
             {loading ? "Enviando..." : <Send size={18} />}
           </button>
         </div>
