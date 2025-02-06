@@ -4,53 +4,45 @@ import { useState } from "react";
 import { Menu, PlusCircle, Send } from "lucide-react";
 
 export default function Chat() {
-  const [chats, setChats] = useState<{ id: string; messages: { role: string; content: string }[] }[]>([
-    { id: crypto.randomUUID(), messages: [] },
-  ]);
-  const [activeChatIndex, setActiveChatIndex] = useState(0);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const activeChat = chats[activeChatIndex];
+  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
+  const [activeChat, setActiveChat] = useState(0);
+  const [conversationIds, setConversationIds] = useState<{ [key: number]: string }>({});
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const updatedMessages = [...activeChat.messages, { role: "user", content: input }];
-    const updatedChats = [...chats];
-    updatedChats[activeChatIndex].messages = updatedMessages;
-    setChats(updatedChats);
+    const newMessages = [...messages, { role: "user", content: input }];
+    setMessages(newMessages);
     setLoading(true);
 
     try {
+      // Se não houver um ID de conversa para essa sessão, cria um novo
+      const conversationId = conversationIds[activeChat] || `chat-${activeChat}-${Date.now()}`;
+      setConversationIds({ ...conversationIds, [activeChat]: conversationId });
+
       const response = await fetch("/api/dify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
           query: input,
-          chatId: activeChat.id,
-          history: updatedMessages, // Enviando o histórico da conversa ao Dify
+          conversation_id: conversationId // ✅ Passando o ID para manter o contexto da conversa
         }),
       });
 
       const data = await response.json();
 
-      updatedChats[activeChatIndex].messages = [...updatedMessages, { role: "bot", content: data.response }];
-      setChats(updatedChats);
+      setMessages([...newMessages, { role: "bot", content: data.response }]);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
 
     setInput("");
     setLoading(false);
-  };
-
-  const createNewChat = () => {
-    const newChat = { id: crypto.randomUUID(), messages: [] };
-    setChats([...chats, newChat]);
-    setActiveChatIndex(chats.length);
   };
 
   return (
@@ -63,20 +55,28 @@ export default function Chat() {
         </div>
         <button
           className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-          onClick={createNewChat}
+          onClick={() => {
+            const newChatIndex = history.length;
+            setHistory([...history, `Conversa ${newChatIndex + 1}`]);
+            setActiveChat(newChatIndex);
+            setMessages([]); // Inicia uma nova conversa vazia
+          }}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {chats.map((chat, index) => (
+          {history.map((item, index) => (
             <div
-              key={chat.id}
+              key={index}
               className={`p-2 rounded-lg cursor-pointer transition ${
-                activeChatIndex === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
+                activeChat === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
               }`}
-              onClick={() => setActiveChatIndex(index)}
+              onClick={() => {
+                setActiveChat(index);
+                setMessages([]); // Limpa a tela, mas mantém a conversa no Dify
+              }}
             >
-              Conversa {index + 1}
+              {item}
             </div>
           ))}
         </div>
@@ -85,7 +85,7 @@ export default function Chat() {
       {/* Área do Chat */}
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {activeChat.messages.map((msg, index) => (
+          {messages.map((msg, index) => (
             <div
               key={index}
               className={`p-3 rounded-lg max-w-lg ${
