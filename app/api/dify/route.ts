@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
         const payload = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming", 
-            conversation_id: conversationId || "", // 🔥 Deixa vazio na primeira chamada
+            response_mode: "streaming", // 🔥 Garante que está usando streaming
+            conversation_id: conversationId || "", // 🔥 Mantém o contexto da conversa
             user: "user-123",
         };
 
@@ -36,25 +36,32 @@ export async function POST(req: NextRequest) {
         // 🔥 Lendo a resposta em streaming corretamente
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let fullResponse = "";
+        let finalResponse = "";
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            fullResponse += decoder.decode(value, { stream: true });
+            const chunk = decoder.decode(value, { stream: true });
+
+            // 🔥 O Dify retorna dados no formato `data: {...}`, precisamos extrair só o JSON
+            const match = chunk.match(/data:\s*({.*})/);
+            if (match) {
+                try {
+                    const jsonData = JSON.parse(match[1]);
+                    if (jsonData.answer) {
+                        finalResponse += jsonData.answer + " ";
+                    }
+                    if (jsonData.conversation_id) {
+                        conversationId = jsonData.conversation_id; // 🔥 Salva o ID da conversa para continuidade
+                    }
+                } catch (error) {
+                    console.error("Erro ao processar JSON da resposta:", error);
+                }
+            }
         }
 
-        // 🔥 Extraindo a resposta do JSON retornado pelo Dify
-        const responseData = JSON.parse(fullResponse);
-        const botResponse = responseData.answer || "Erro ao processar resposta.";
-
-        // 🔥 Armazena o conversation_id para manter o fluxo
-        if (responseData.conversation_id) {
-            conversationId = responseData.conversation_id;
-        }
-
-        return NextResponse.json({ response: botResponse });
+        return NextResponse.json({ response: finalResponse.trim(), conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
