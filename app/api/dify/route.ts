@@ -32,37 +32,39 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Processa a resposta corretamente para evitar texto embolado
+        // 🔥 Processa a resposta corretamente para evitar palavras cortadas
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
+        let buffer = ""; // 🔥 Armazena os dados brutos antes de montar a resposta final
         let finalResponse = "";
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
+            buffer += decoder.decode(value, { stream: true });
 
             // 🔥 Filtrando corretamente os dados no formato `data: {...}`
-            const match = chunk.match(/data:\s*({.*})/g);
-            if (match) {
+            let match;
+            while ((match = buffer.match(/data:\s*({.*})/))) {
                 try {
-                    match.forEach((data) => {
-                        const jsonData = JSON.parse(data.replace("data: ", ""));
-                        if (jsonData.answer) {
-                            finalResponse += jsonData.answer + " ";
-                        }
-                        if (jsonData.conversation_id) {
-                            conversationId = jsonData.conversation_id; // 🔥 Salva o ID da conversa
-                        }
-                    });
+                    const jsonData = JSON.parse(match[1]);
+                    if (jsonData.answer) {
+                        finalResponse += jsonData.answer + " ";
+                    }
+                    if (jsonData.conversation_id) {
+                        conversationId = jsonData.conversation_id; // 🔥 Salva o ID da conversa
+                    }
                 } catch (error) {
                     console.error("Erro ao processar JSON da resposta:", error);
                 }
+
+                // Remove o bloco processado do buffer para evitar processamento duplicado
+                buffer = buffer.replace(match[0], "").trim();
             }
         }
 
-        // 🔥 Remove quebras de linha e espaços extras
+        // 🔥 Remove quebras de linha, espaços extras e palavras cortadas
         finalResponse = finalResponse.replace(/\s+/g, " ").trim();
 
         return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
