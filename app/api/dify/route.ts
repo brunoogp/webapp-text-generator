@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                inputs: {},  // Dify requer um campo "inputs", mesmo vazio
+                inputs: {},  
                 query: requestData.query,
-                response_mode: "blocking",
+                response_mode: "streaming",  // ✅ Alterado para STREAMING
                 user: "teste-123"
             })
         });
@@ -28,8 +28,20 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        const data = await response.json();
-        return NextResponse.json(data);
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let result = "";
+
+        if (reader) {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                result += decoder.decode(value, { stream: true });
+            }
+        }
+
+        return NextResponse.json({ response: result });
+
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
