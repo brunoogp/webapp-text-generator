@@ -6,7 +6,7 @@ import { Menu, PlusCircle, Send } from "lucide-react";
 export default function Chat() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = false;
   const [history, setHistory] = useState<string[]>(["Conversa 1"]);
   const [activeChat, setActiveChat] = useState(0);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -26,22 +26,17 @@ export default function Chat() {
         },
         body: JSON.stringify({ 
           query: input,
-          conversation_id: conversationId // ✅ Envia o conversation_id salvo
+          conversation_id: conversationId, // ✅ Mantendo o histórico
         }),
       });
 
       const data = await response.json();
 
-      if (data.error) {
-        console.error("Erro da API:", data.error);
-        return;
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id); // ✅ Salva o ID da conversa
       }
 
-      // ✅ Atualiza a conversa e salva o conversation_id
       setMessages([...newMessages, { role: "bot", content: data.response }]);
-      if (data.conversation_id) {
-        setConversationId(data.conversation_id);
-      }
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
@@ -52,7 +47,6 @@ export default function Chat() {
 
   return (
     <div className="flex h-screen w-screen bg-black text-white">
-      {/* Menu Lateral */}
       <aside className="w-64 bg-gray-900 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
@@ -64,8 +58,8 @@ export default function Chat() {
             const newChatIndex = history.length;
             setHistory([...history, `Conversa ${newChatIndex + 1}`]);
             setActiveChat(newChatIndex);
-            setMessages([]); // Inicia uma nova conversa vazia
-            setConversationId(null); // 🔥 Reseta o conversation_id para criar uma nova conversa
+            setMessages([]); 
+            setConversationId(null); // 🔥 Zera a conversa para começar uma nova
           }}
         >
           <PlusCircle size={18} /> Nova conversa
@@ -79,7 +73,8 @@ export default function Chat() {
               }`}
               onClick={() => {
                 setActiveChat(index);
-                setMessages([]); // Limpa a tela, mas mantém a conversa no Dify
+                setMessages([]);
+                setConversationId(null);
               }}
             >
               {item}
@@ -88,7 +83,6 @@ export default function Chat() {
         </div>
       </aside>
 
-      {/* Área do Chat */}
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((msg, index) => (
@@ -104,7 +98,6 @@ export default function Chat() {
           {loading && <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
-        {/* Campo de Entrada */}
         <div className="p-4 bg-gray-900 flex w-full">
           <input
             type="text"
