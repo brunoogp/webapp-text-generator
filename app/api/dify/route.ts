@@ -1,45 +1,57 @@
-export default async function handler(req, res) {
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(req: NextRequest) {
     try {
-        if (req.method !== "POST") {
-            return res.status(405).json({ error: "Method Not Allowed" });
-        }
+        const requestData = await req.json();
 
-        const { query } = req.body;
-
-        if (!query) {
-            return res.status(400).json({ error: "Query não fornecida" });
+        if (!requestData.query) {
+            return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
         const response = await fetch('https://api.dify.ai/v1/chat-messages', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer SEU_TOKEN_AQUI', // Substituir pelo token correto
+                'Authorization': 'Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr', // Substitua pelo token correto
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                query,
-                response_mode: "streaming", // Alterado para streaming, pois blocking não é suportado
-                user: "teste-123",
-                inputs: {}
+                inputs: {},
+                query: requestData.query,
+                response_mode: "streaming",
+                user: "teste-123"
             })
         });
 
         if (!response.ok) {
-            throw new Error(`Erro na API do Dify: ${response.statusText}`);
+            const errorData = await response.json();
+            return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // Lendo a resposta corretamente
-        const reader = response.body.getReader();
-        let result = "";
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            result += new TextDecoder("utf-8").decode(value);
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let fullResponse = "";
+
+        if (reader) {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                fullResponse += decoder.decode(value, { stream: true });
+            }
         }
 
-        res.status(200).json({ response: result });
+        // Extraindo apenas a resposta relevante da stream
+        const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
+        const cleanedResponse = matches
+            ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
+            : 'Erro ao processar resposta.';
+
+        // 🔥 Decodifica caracteres unicode corretamente
+        const decodedResponse = JSON.parse(`{"text": "${cleanedResponse}"}`).text;
+
+        return NextResponse.json({ response: decodedResponse });
+
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
