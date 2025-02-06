@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Mantém o ID da conversa para continuidade
+let conversationId = ""; // 🔥 Mantém o ID da conversa
 
 export async function POST(req: NextRequest) {
     try {
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
         const payload = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming", // 🔥 Mantém o modo correto
+            response_mode: "streaming", // 🔥 Garante resposta contínua
             conversation_id: conversationId || "",
             user: "user-123",
         };
@@ -44,13 +44,12 @@ export async function POST(req: NextRequest) {
 
             buffer += decoder.decode(value, { stream: true });
 
-            // 🔥 Captura os blocos de resposta JSON corretamente
             let match;
             while ((match = buffer.match(/data:\s*({.*})/))) {
                 try {
                     const jsonData = JSON.parse(match[1]);
                     if (jsonData.answer) {
-                        finalResponse += jsonData.answer;
+                        finalResponse += jsonData.answer + " ";
                     }
                     if (jsonData.conversation_id) {
                         conversationId = jsonData.conversation_id;
@@ -63,11 +62,12 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 🔥 Ajuste final: Remover espaços incorretos entre palavras
+        // 🔥 Corrige palavras separadas, remove espaços antes de pontuação
         finalResponse = finalResponse.replace(/\s([.,!?;])/g, "$1"); // Remove espaços antes de pontuação
-        finalResponse = finalResponse.replace(/\s+/g, " "); // Substitui múltiplos espaços por um único
+        finalResponse = finalResponse.replace(/\s+/g, " "); // Remove espaços duplos
+        finalResponse = finalResponse.trim();
 
-        return NextResponse.json({ response: finalResponse.trim(), conversation_id: conversationId });
+        return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
