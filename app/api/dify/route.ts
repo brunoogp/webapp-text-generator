@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Mantém o ID da conversa
+let conversationId = ""; // 🔥 Mantém o ID da conversa globalmente
 
 export async function POST(req: NextRequest) {
     try {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Coletando a resposta completa antes de exibir
+        // 🔥 Lendo a resposta em streaming corretamente
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
@@ -62,11 +62,12 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 🔥 Ajuste para evitar palavras quebradas
-        finalResponse = finalResponse.replace(/(\w)-\s(\w)/g, "$1$2"); // Junta palavras separadas por hífen
-        finalResponse = finalResponse.replace(/\s([.,!?;])/g, "$1"); // Remove espaços antes de pontuação
-        finalResponse = finalResponse.replace(/\s+/g, " "); // Remove espaços extras
-        finalResponse = finalResponse.trim();
+        // 🔥 🔥 🔥 Correção FINAL para remover quebras erradas 🔥 🔥 🔥
+        finalResponse = finalResponse
+            .replace(/\s([.,!?;])/g, "$1") // Remove espaços antes de pontuação
+            .replace(/\s+/g, " ") // Remove espaços extras
+            .replace(/(\w)-\s(\w)/g, "$1$2") // Junta palavras separadas por hífen
+            .trim();
 
         return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
 
