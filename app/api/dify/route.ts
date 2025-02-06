@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
-                response_mode: "blocking", // 🚀 Modo que garante que a resposta completa será enviada
+                response_mode: "streaming", // 🚀 Modo que garante que a resposta completa será enviada
                 user: "teste-123",
                 conversation_id: conversationId, // ✅ Passando o ID da conversa para manter o contexto
             })
