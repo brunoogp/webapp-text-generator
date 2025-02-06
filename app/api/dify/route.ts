@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
-                response_mode: "streaming",
+                response_mode: "blocking",
                 user: "teste-123",
                 conversation_id: conversationId // 🔥 Agora sempre enviamos um ID válido!
             })
