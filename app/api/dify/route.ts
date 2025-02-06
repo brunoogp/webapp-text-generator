@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
-let conversationId = uuidv4(); // 🔥 Gerando um conversation_id global temporário
+// 🔥 Criamos um objeto para armazenar os conversation_id por usuário (simples solução em memória)
+const userConversations: { [key: string]: string } = {};
 
 export async function POST(req: NextRequest) {
     try {
@@ -11,23 +12,28 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        // 🔥 Garante que sempre há um conversation_id válido
-        if (requestData.reset || !conversationId) {
-            conversationId = uuidv4();
+        // 🔥 Definir um user_id temporário (idealmente, isso viria do seu sistema de autenticação)
+        const userId = "teste-123"; 
+
+        // 🔥 Se reset for true ou o usuário não tem uma conversa ativa, criamos um novo ID
+        if (requestData.reset || !userConversations[userId]) {
+            userConversations[userId] = uuidv4();
         }
+
+        const conversationId = userConversations[userId]; // Pegamos o conversation_id salvo
 
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
             headers: {
-                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // Substitua pelo token correto
+                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // 🔥 Substitua pelo token correto
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
                 inputs: {},
                 query: requestData.query,
                 response_mode: "blocking",
-                user: "teste-123",
-                conversation_id: conversationId // 🔥 Agora sempre enviamos um ID válido!
+                user: userId,
+                conversation_id: conversationId // 🔥 Sempre enviamos um conversation_id válido!
             })
         });
 
@@ -38,7 +44,7 @@ export async function POST(req: NextRequest) {
 
         const data = await response.json();
 
-        return NextResponse.json({ response: data.answer });
+        return NextResponse.json({ response: data.answer, conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
