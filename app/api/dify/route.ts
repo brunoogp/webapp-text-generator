@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
             headers: {
-                "Authorization": "Bearer SEU_TOKEN_AQUI", // 🔥 Substitua pelo token correto
+                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // 🔥 Substitua pelo token correto
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
