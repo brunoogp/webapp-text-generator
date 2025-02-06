@@ -11,6 +11,34 @@ export default function Chat() {
   const [activeChat, setActiveChat] = useState(0);
   const [conversationIds, setConversationIds] = useState<{ [key: number]: string }>({});
 
+  // 🔥 Criar Nova Conversa
+  const startNewConversation = async () => {
+    setLoading(true);
+    setMessages([]); // Limpa a tela atual
+
+    try {
+      const response = await fetch("/api/dify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "Iniciar nova conversa", reset: true })
+      });
+
+      const data = await response.json();
+
+      const newChatIndex = history.length;
+      setHistory([...history, `Conversa ${newChatIndex + 1}`]); // Adiciona a nova conversa no menu
+      setActiveChat(newChatIndex);
+      setConversationIds({ ...conversationIds, [newChatIndex]: data.conversation_id }); // Salva o ID da conversa
+      setMessages([{ role: "bot", content: data.response }]); // Exibe a resposta inicial
+
+    } catch (error) {
+      console.error("Erro ao iniciar nova conversa:", error);
+    }
+
+    setLoading(false);
+  };
+
+  // ✉️ Enviar Mensagem
   const sendMessage = async () => {
     if (!input.trim()) return;
 
@@ -19,24 +47,20 @@ export default function Chat() {
     setLoading(true);
 
     try {
-      // Se não houver um ID de conversa para essa sessão, cria um novo
-      const conversationId = conversationIds[activeChat] || `chat-${activeChat}-${Date.now()}`;
-      setConversationIds({ ...conversationIds, [activeChat]: conversationId });
+      const conversationId = conversationIds[activeChat]; // Obtém o ID da conversa ativa
 
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           query: input,
-          conversation_id: conversationId // ✅ Passando o ID para manter o contexto da conversa
+          conversation_id: conversationId // 🔥 Mantém o contexto da conversa correta
         }),
       });
 
       const data = await response.json();
-
       setMessages([...newMessages, { role: "bot", content: data.response }]);
+
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
@@ -55,12 +79,7 @@ export default function Chat() {
         </div>
         <button
           className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-          onClick={() => {
-            const newChatIndex = history.length;
-            setHistory([...history, `Conversa ${newChatIndex + 1}`]);
-            setActiveChat(newChatIndex);
-            setMessages([]); // Inicia uma nova conversa vazia
-          }}
+          onClick={startNewConversation} // 🔥 Agora cria uma nova conversa corretamente
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
