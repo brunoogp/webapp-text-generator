@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Salva o ID da conversa globalmente
+let conversationId: string | null = null; // 🔥 Inicializa corretamente
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,18 +10,22 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        // 🚀 Se um conversation_id for passado, reutiliza. Se for reset, cria um novo.
+        // 🚀 Se `reset` for true, inicia uma nova conversa
         if (requestData.reset) {
-            conversationId = "";
+            conversationId = null;
         }
 
-        const payload = {
+        const payload: any = {
             inputs: {},
             query: requestData.query,
             response_mode: "streaming",
-            conversation_id: conversationId || "", // Mantém a conversa
             user: "user-123",
         };
+
+        // 🔥 Se já tivermos um conversationId, adicionamos ao payload
+        if (conversationId) {
+            payload.conversation_id = conversationId;
+        }
 
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
@@ -41,7 +45,6 @@ export async function POST(req: NextRequest) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let fullResponse = "";
-        let newConversationId = conversationId; // Inicialmente mantém o ID existente
 
         while (true) {
             const { done, value } = await reader.read();
@@ -58,16 +61,13 @@ export async function POST(req: NextRequest) {
                         fullResponse += jsonData.answer + " ";
                     }
                     if (jsonData.conversation_id) {
-                        newConversationId = jsonData.conversation_id; // Atualiza o ID da conversa
+                        conversationId = jsonData.conversation_id; // 🔥 Agora salvamos corretamente o `conversation_id`
                     }
                 } catch (error) {
                     console.error("Erro ao processar JSON da resposta:", error);
                 }
             }
         }
-
-        // 🔥 Atualiza o conversation_id para manter o histórico
-        conversationId = newConversationId;
 
         // 🔥 Limpando o texto para evitar palavras cortadas e espaçamentos errados
         fullResponse = fullResponse
