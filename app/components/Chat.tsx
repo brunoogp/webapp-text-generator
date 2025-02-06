@@ -4,31 +4,45 @@ import { useState } from "react";
 import { Menu, PlusCircle, Send } from "lucide-react";
 
 export default function Chat() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [conversations, setConversations] = useState([
+    { id: 1, title: "Conversa 1", messages: [] },
+  ]);
+  const [activeConversation, setActiveConversation] = useState(1);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
-  const [activeChat, setActiveChat] = useState("Conversa 1");
-  const [chats, setChats] = useState<{ [key: string]: { role: string; content: string }[] }>({ "Conversa 1": [] });
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMessages = [...(chats[activeChat] || []), { role: "user", content: input }];
-    setChats({ ...chats, [activeChat]: newMessages });
     setLoading(true);
+    const newConversations = conversations.map((conv) =>
+      conv.id === activeConversation
+        ? {
+            ...conv,
+            messages: [...conv.messages, { role: "user", content: input }],
+          }
+        : conv
+    );
+    setConversations(newConversations);
 
     try {
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: input }),
       });
 
       const data = await response.json();
-      setChats({ ...chats, [activeChat]: [...newMessages, { role: "bot", content: data.response }] });
+      setConversations((prevConversations) =>
+        prevConversations.map((conv) =>
+          conv.id === activeConversation
+            ? {
+                ...conv,
+                messages: [...conv.messages, { role: "bot", content: data.response }],
+              }
+            : conv
+        )
+      );
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
@@ -37,46 +51,45 @@ export default function Chat() {
     setLoading(false);
   };
 
-  const startNewChat = () => {
-    const newChatName = `Conversa ${history.length + 1}`;
-    setHistory([...history, newChatName]);
-    setChats({ ...chats, [newChatName]: [] });
-    setActiveChat(newChatName);
+  const newChat = () => {
+    const newId = conversations.length + 1;
+    setConversations([...conversations, { id: newId, title: `Conversa ${newId}`, messages: [] }]);
+    setActiveConversation(newId);
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
+    <div className="flex h-screen bg-black text-white">
       {/* Menu Lateral */}
-      <aside className="w-72 bg-gray-800 p-4 flex flex-col fixed left-0 top-0 h-full border-r border-gray-700">
+      <aside className="w-64 bg-gray-900 p-4 flex flex-col border-r border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
           <Menu size={24} className="cursor-pointer" />
         </div>
         <button
           className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
-          onClick={startNewChat}
+          onClick={newChat}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {history.map((item, index) => (
+          {conversations.map((conv) => (
             <div
-              key={index}
+              key={conv.id}
               className={`p-2 rounded-lg cursor-pointer transition ${
-                activeChat === item ? "bg-gray-600" : "bg-gray-700 hover:bg-gray-600"
+                activeConversation === conv.id ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"
               }`}
-              onClick={() => setActiveChat(item)}
+              onClick={() => setActiveConversation(conv.id)}
             >
-              {item}
+              {conv.title}
             </div>
           ))}
         </div>
       </aside>
 
       {/* Área do Chat */}
-      <div className="flex-1 flex flex-col ml-72">
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[calc(100vh-80px)]">
-          {(chats[activeChat] || []).map((msg, index) => (
+      <div className="flex-1 flex flex-col bg-gray-950">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {conversations.find((conv) => conv.id === activeConversation)?.messages.map((msg, index) => (
             <div
               key={index}
               className={`p-3 rounded-lg max-w-lg ${
@@ -90,14 +103,14 @@ export default function Chat() {
         </div>
 
         {/* Campo de Entrada */}
-        <div className="p-4 bg-gray-800 flex fixed bottom-0 left-72 right-0 border-t border-gray-700">
+        <div className="p-4 bg-gray-900 flex border-t border-gray-700">
           <input
             type="text"
-            className="flex-1 bg-gray-700 text-white p-3 rounded-lg focus:outline-none"
+            className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Digite sua mensagem..."
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            onKeyPress={(e) => e.key === "Enter" && sendMessage()}
           />
           <button
             className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
