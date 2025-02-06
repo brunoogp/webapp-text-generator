@@ -40,14 +40,17 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Extraindo apenas os campos "answer" corretamente
+        // 🔥 Extraindo apenas os valores de "answer"
         const matches = fullResponse.match(/"answer":\s*"([^"]+)"/g);
         const cleanedResponse = matches
             ? matches.map(m => m.replace(/"answer":\s*"/, '').replace(/"$/, '')).join(' ')
             : 'Erro ao processar resposta.';
 
-        // 🔥 Remove espaços extras entre as palavras e formata corretamente
-        const formattedResponse = cleanedResponse.replace(/\s+/g, ' ').trim();
+        // 🔥 Normaliza caracteres Unicode e remove espaços extras
+        const formattedResponse = cleanedResponse
+            .normalize("NFC")  // Corrige problemas de encoding
+            .replace(/\s+/g, ' ') // Remove espaços duplicados
+            .trim(); // Remove espaços no início e fim
 
         return NextResponse.json({ response: formattedResponse });
 
