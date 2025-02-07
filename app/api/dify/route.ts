@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Mantém o ID da conversa para contexto contínuo
+let conversationId = ""; // 🔥 Mantém o ID da conversa para garantir continuidade
 
 export async function POST(req: NextRequest) {
     try {
@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
+        let fullResponse = "";
         let buffer = "";
-        let finalResponse = "";
 
         while (true) {
             const { done, value } = await reader.read();
@@ -42,14 +42,14 @@ export async function POST(req: NextRequest) {
 
             buffer += decoder.decode(value, { stream: true });
 
-            // 🔥 Captura corretamente apenas os JSONs no formato 'data: { ... }'
-            const match = buffer.match(/data:\s*({.*})/g);
-            if (match) {
-                match.forEach((jsonString) => {
+            // 🔥 Filtrando corretamente os dados no formato 'data: { ... }'
+            const matches = buffer.match(/data:\s*({.*})/g);
+            if (matches) {
+                matches.forEach((jsonString) => {
                     try {
                         const jsonData = JSON.parse(jsonString.replace("data: ", ""));
                         if (jsonData.answer) {
-                            finalResponse += jsonData.answer + " ";
+                            fullResponse += jsonData.answer + " ";
                         }
                         if (jsonData.conversation_id) {
                             conversationId = jsonData.conversation_id;
@@ -62,16 +62,16 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 🔥 Correção final no texto antes de enviar para o frontend
-        finalResponse = finalResponse
-            .replace(/\s{2,}/g, " ") // Substitui múltiplos espaços seguidos por um único
-            .replace(/\s+\./g, ".") // Remove espaços antes de pontos finais
-            .replace(/\s+,/g, ",") // Remove espaços antes de vírgulas
-            .replace(/\s+\?/g, "?") // Remove espaços antes de interrogações
-            .replace(/\s+\!/g, "!") // Remove espaços antes de exclamações
-            .trim(); // Remove espaços no início e no fim
+        // 🔥 Tratamento Final: Corrige espaços e palavras cortadas
+        fullResponse = fullResponse
+            .replace(/\s{2,}/g, " ") // Remove múltiplos espaços
+            .replace(/\s+\./g, ".")  // Remove espaços antes de pontos finais
+            .replace(/\s+,/g, ",")   // Remove espaços antes de vírgulas
+            .replace(/\s+\?/g, "?")  // Remove espaços antes de interrogações
+            .replace(/\s+\!/g, "!")  // Remove espaços antes de exclamações
+            .trim();                 // Remove espaços no início e no fim
 
-        return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
+        return NextResponse.json({ response: fullResponse, conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
