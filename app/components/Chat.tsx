@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Menu, PlusCircle, Send } from "lucide-react";
 
 export default function Chat() {
@@ -9,7 +9,12 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<string[]>(["Conversa 1"]);
   const [activeChat, setActiveChat] = useState(0);
-  const [conversationId, setConversationId] = useState<string | null>(null); // 🔥 Mantém o ID da conversa
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
+  const cleanText = (text: string) => {
+    return text.replace(/\s+/g, " ").trim(); // 🔥 Remove espaços extras mantendo a formatação correta
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -24,7 +29,7 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: input,
-          conversation_id: conversationId, // ✅ Mantendo o contexto da conversa
+          conversation_id: conversationId,
         }),
       });
 
@@ -35,10 +40,13 @@ export default function Chat() {
         return;
       }
 
-      setMessages([...newMessages, { role: "bot", content: data.response }]);
+      // ✅ Aplica limpeza no texto antes de exibir
+      const cleanedResponse = cleanText(data.response);
+
+      setMessages([...newMessages, { role: "bot", content: cleanedResponse }]);
 
       if (data.conversation_id) {
-        setConversationId(data.conversation_id); // 🔥 Atualiza o ID da conversa
+        setConversationId(data.conversation_id); // ✅ Mantém o contexto da conversa
       }
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
@@ -61,8 +69,8 @@ export default function Chat() {
           onClick={() => {
             setActiveChat(history.length);
             setHistory([...history, `Conversa ${history.length + 1}`]);
-            setMessages([]); // ✅ Limpa a tela para uma nova conversa
-            setConversationId(null); // 🔥 Reseta o ID da conversa
+            setMessages([]);
+            setConversationId(null); // 🔥 Reseta o ID da conversa para iniciar do zero
           }}
         >
           <PlusCircle size={18} /> Nova conversa
@@ -76,8 +84,8 @@ export default function Chat() {
               }`}
               onClick={() => {
                 setActiveChat(index);
-                setMessages([]); // 🔥 Troca de conversa
-                setConversationId(null); // ❌ Reseta o ID para evitar conflitos
+                setMessages([]);
+                setConversationId(null); // ❌ Reseta o ID para evitar continuidade errada
               }}
             >
               {item}
