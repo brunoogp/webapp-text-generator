@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Menu, PlusCircle, Send } from "lucide-react";
-import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAlQEkdSArdyNYMzKVUBJQs5yRoww55Pmc",
