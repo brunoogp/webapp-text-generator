@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = "";
+const userConversations = new Map();
 
 export async function POST(req: NextRequest) {
     try {
@@ -9,16 +9,20 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
+        const userKey = `${requestData.user_id || 'default'}_${requestData.conversation_id || ''}`;
+        let currentConversationId = userConversations.get(userKey) || "";
+
         if (requestData.conversation_id) {
-            conversationId = requestData.conversation_id;
+            currentConversationId = requestData.conversation_id;
+            userConversations.set(userKey, requestData.conversation_id);
         }
 
         const payload = {
             inputs: {},
             query: requestData.query,
             response_mode: "streaming",
-            conversation_id: conversationId || "",
-            user: "user-123",
+            conversation_id: currentConversationId,
+            user: requestData.user_id || "user-123",
         };
 
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
@@ -37,19 +41,17 @@ export async function POST(req: NextRequest) {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let buffer = ""; // Buffer para acumular chunks parciais
+        let buffer = "";
         let fullResponse = "";
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             
-            // Decodifica o chunk atual e adiciona ao buffer
             buffer += decoder.decode(value, { stream: true });
             
-            // Processa todas as linhas completas no buffer
             const lines = buffer.split('\n');
-            buffer = lines.pop() || ""; // Mantém a última linha incompleta no buffer
+            buffer = lines.pop() || "";
 
             for (const line of lines) {
                 if (line.trim().startsWith('data:')) {
@@ -61,7 +63,8 @@ export async function POST(req: NextRequest) {
                                 fullResponse = fullResponse + jsonData.answer;
                             }
                             if (jsonData.conversation_id) {
-                                conversationId = jsonData.conversation_id;
+                                currentConversationId = jsonData.conversation_id;
+                                userConversations.set(userKey, jsonData.conversation_id);
                             }
                         }
                     } catch (error) {
@@ -71,7 +74,6 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Processa qualquer dado restante no buffer
         if (buffer.trim()) {
             const match = buffer.match(/data:\s*({.*})/);
             if (match) {
@@ -88,7 +90,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             response: fullResponse.trim(),
-            conversation_id: conversationId,
+            conversation_id: currentConversationId,
         });
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
