@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuth } from "firebase-admin/auth";
+import admin from "firebase-admin";
 
-const userConversations = new Map();
+// 🔥 Inicializa Firebase Admin (se ainda não estiver inicializado)
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
+
+let conversationId = "";
 
 export async function POST(req: NextRequest) {
     try {
@@ -9,20 +16,29 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        const userKey = `${requestData.user_id || 'default'}_${requestData.conversation_id || ''}`;
-        let currentConversationId = userConversations.get(userKey) || "";
+        // 🔥 Adiciona verificação de autenticação Firebase
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+            return NextResponse.json({ error: "Token de autenticação ausente" }, { status: 401 });
+        }
+
+        try {
+            const decodedToken = await getAuth().verifyIdToken(authHeader.replace("Bearer ", ""));
+            console.log("Usuário autenticado:", decodedToken.uid);
+        } catch (error) {
+            return NextResponse.json({ error: "Token inválido ou expirado" }, { status: 403 });
+        }
 
         if (requestData.conversation_id) {
-            currentConversationId = requestData.conversation_id;
-            userConversations.set(userKey, requestData.conversation_id);
+            conversationId = requestData.conversation_id;
         }
 
         const payload = {
             inputs: {},
             query: requestData.query,
             response_mode: "streaming",
-            conversation_id: currentConversationId,
-            user: requestData.user_id || "user-123",
+            conversation_id: conversationId || "",
+            user: "user-123",
         };
 
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
@@ -49,7 +65,6 @@ export async function POST(req: NextRequest) {
             if (done) break;
             
             buffer += decoder.decode(value, { stream: true });
-            
             const lines = buffer.split('\n');
             buffer = lines.pop() || "";
 
@@ -63,8 +78,7 @@ export async function POST(req: NextRequest) {
                                 fullResponse = fullResponse + jsonData.answer;
                             }
                             if (jsonData.conversation_id) {
-                                currentConversationId = jsonData.conversation_id;
-                                userConversations.set(userKey, jsonData.conversation_id);
+                                conversationId = jsonData.conversation_id;
                             }
                         }
                     } catch (error) {
@@ -90,7 +104,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             response: fullResponse.trim(),
-            conversation_id: currentConversationId,
+            conversation_id: conversationId,
         });
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
