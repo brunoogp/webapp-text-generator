@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Mantém o ID da conversa para continuidade
+let conversationId = ""; // 🔥 Mantém o ID da conversa globalmente
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,23 +10,18 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        // Se o frontend enviar um conversation_id, utilizamos ele
-        if (requestData.conversation_id) {
-            conversationId = requestData.conversation_id;
-        }
-
         const payload = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming", // 🔥 Mantém o modo streaming
-            conversation_id: conversationId || "", // 🔥 Mantém a conversa ativa
+            response_mode: "streaming",
+            conversation_id: conversationId || "",
             user: "user-123",
         };
 
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
             method: "POST",
             headers: {
-                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // 🔥 Troque pelo seu token real
+                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr",
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(payload),
@@ -37,38 +32,44 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Processando a resposta em streaming
+        // 🔥 Lendo a resposta em streaming corretamente
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let fullResponse = "";
+        let buffer = "";
+        let finalResponse = "";
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
+            buffer += decoder.decode(value, { stream: true });
 
-            // 🔥 Extraindo corretamente os dados JSON da resposta do streaming
-            const match = chunk.match(/data:\s*({.*})/);
-            if (match) {
+            let match;
+            while ((match = buffer.match(/data:\s*({.*})/))) {
                 try {
                     const jsonData = JSON.parse(match[1]);
                     if (jsonData.answer) {
-                        fullResponse += jsonData.answer + " ";
+                        finalResponse += jsonData.answer + " ";
                     }
                     if (jsonData.conversation_id) {
-                        conversationId = jsonData.conversation_id; // 🔥 Atualiza o ID da conversa
+                        conversationId = jsonData.conversation_id;
                     }
                 } catch (error) {
                     console.error("Erro ao processar JSON da resposta:", error);
                 }
+
+                buffer = buffer.replace(match[0], "").trim();
             }
         }
 
-        return NextResponse.json({
-            response: fullResponse.trim(),
-            conversation_id: conversationId, // 🔥 Retornamos o ID da conversa para o frontend armazenar
-        });
+        // 🔥 🔥 🔥 Correção FINAL para remover quebras erradas 🔥 🔥 🔥
+        finalResponse = finalResponse
+            .replace(/\s([.,!?;])/g, "$1") // Remove espaços antes de pontuação
+            .replace(/\s+/g, " ") // Remove espaços extras
+            .replace(/(\w)-\s(\w)/g, "$1$2") // Junta palavras separadas por hífen
+            .trim();
+
+        return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
