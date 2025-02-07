@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
         const decoder = new TextDecoder("utf-8");
         let buffer = "";
         let fullResponse = "";
+        let partialWord = "";
         let isFirstChunk = true;
 
         while (true) {
@@ -57,15 +58,31 @@ export async function POST(req: NextRequest) {
                         if (jsonStr) {
                             const jsonData = JSON.parse(jsonStr);
                             if (jsonData.answer) {
-                                // Preserva quebras de linha e formatação markdown
-                                const answer = jsonData.answer;
+                                let answer = jsonData.answer;
                                 
-                                // Se for o primeiro chunk, não precisamos adicionar espaço
+                                // Se temos uma palavra parcial do chunk anterior
+                                if (partialWord) {
+                                    // Se o chunk atual começa com espaço ou pontuação
+                                    if (/^[\s\.,\?!]/.test(answer)) {
+                                        fullResponse += partialWord;
+                                    } else {
+                                        // Se não, juntamos com o início do chunk atual
+                                        answer = partialWord + answer;
+                                    }
+                                    partialWord = "";
+                                }
+
+                                // Verifica se o chunk termina no meio de uma palavra
+                                const lastWordMatch = answer.match(/\S+$/);
+                                if (lastWordMatch) {
+                                    partialWord = lastWordMatch[0];
+                                    answer = answer.slice(0, -partialWord.length);
+                                }
+
                                 if (isFirstChunk) {
                                     fullResponse = answer;
                                     isFirstChunk = false;
                                 } else {
-                                    // Verifica se precisamos adicionar espaço entre os chunks
                                     const needsSpace = !fullResponse.endsWith(' ') && 
                                                      !fullResponse.endsWith('\n') && 
                                                      !answer.startsWith(' ') && 
@@ -83,6 +100,11 @@ export async function POST(req: NextRequest) {
                     }
                 }
             }
+        }
+
+        // Adiciona qualquer palavra parcial restante ao final
+        if (partialWord) {
+            fullResponse += partialWord;
         }
 
         // Processa buffer final se necessário
@@ -105,8 +127,15 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        // Limpeza final do texto
+        fullResponse = fullResponse
+            .replace(/\s+/g, ' ')           // Remove múltiplos espaços
+            .replace(/\s+([.,!?])/g, '$1')  // Remove espaços antes de pontuação
+            .replace(/([.,!?])\s*/g, '$1 ') // Adiciona um espaço após pontuação
+            .trim();
+
         return NextResponse.json({
-            response: fullResponse.trim(),
+            response: fullResponse,
             conversation_id: conversationId,
         });
     } catch (error) {
