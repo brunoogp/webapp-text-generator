@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Mantém o ID da conversa para contexto contínuo
+let conversationId = ""; // ✅ Mantém o contexto da conversa
 
 export async function POST(req: NextRequest) {
     try {
@@ -32,10 +32,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Processando a resposta corretamente
+        // ✅ Lendo a resposta completa corretamente
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let buffer = "";
+        let buffer = ""; // 🔥 Armazena toda a resposta antes de processar
         let finalResponse = "";
 
         while (true) {
@@ -43,37 +43,32 @@ export async function POST(req: NextRequest) {
             if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
-
-            // 🔥 Captura JSON corretamente sem espaços quebrados
-            const matches = buffer.match(/data:\s*({.*?})/g);
-            if (matches) {
-                matches.forEach(match => {
-                    try {
-                        const jsonData = JSON.parse(match.replace("data: ", "").trim());
-                        if (jsonData.answer) {
-                            finalResponse += jsonData.answer + " "; // 🔥 Agora adicionamos um espaço correto entre palavras
-                        }
-                        if (jsonData.conversation_id) {
-                            conversationId = jsonData.conversation_id;
-                        }
-                    } catch (error) {
-                        console.error("Erro ao processar JSON:", error);
-                    }
-                });
-
-                buffer = ""; // 🔥 Limpa buffer após processar JSON corretamente
-            }
         }
 
-        // 🔥 Remove quebras desnecessárias e caracteres truncados
-        const cleanedResponse = finalResponse
-            .replace(/\s+\./g, ".") // Evita espaço antes de ponto final
-            .replace(/\s+,/g, ",")  // Evita espaço antes de vírgula
-            .replace(/\s+/g, " ")   // Remove múltiplos espaços
-            .trim();                // Remove espaços extras no começo e fim
+        // 🔥 Processando os blocos corretamente para evitar palavras truncadas
+        const matches = buffer.match(/data:\s*({.*?})/g);
+        if (matches) {
+            matches.forEach(match => {
+                try {
+                    const jsonData = JSON.parse(match.replace("data: ", "").trim());
+                    if (jsonData.answer) {
+                        finalResponse += jsonData.answer + " "; // ✅ Adiciona espaço corretamente entre as palavras
+                    }
+                    if (jsonData.conversation_id) {
+                        conversationId = jsonData.conversation_id; // 🔥 Mantém o ID da conversa para continuidade
+                    }
+                } catch (error) {
+                    console.error("Erro ao processar JSON:", error);
+                }
+            });
+        }
 
-        // ✅ Pequeno delay para evitar truncamento no streaming
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        // 🔥 Limpeza final do texto para evitar erros de formatação
+        const cleanedResponse = finalResponse
+            .replace(/\s+\./g, ".")  // Evita espaço antes de ponto final
+            .replace(/\s+,/g, ",")   // Evita espaço antes de vírgula
+            .replace(/\s+/g, " ")    // Remove múltiplos espaços seguidos
+            .trim();                 // Remove espaços no início e fim
 
         return NextResponse.json({ response: cleanedResponse, conversation_id: conversationId });
 
