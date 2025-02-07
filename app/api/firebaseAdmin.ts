@@ -1,6 +1,5 @@
 import admin from "firebase-admin";
 
-// Verifica se o Firebase Admin já foi inicializado
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
