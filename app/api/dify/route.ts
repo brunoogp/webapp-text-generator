@@ -7,7 +7,7 @@ interface ChatRequest {
 
 export async function POST(req: NextRequest) {
     try {
-        const apiKey = process.env.app-feeIgILXxX4GCEzRj8aORcYf
+        const apiKey = app-feeIgILXxX4GCEzRj8aORcYf
         
         // Verificação da API key
         if (!apiKey) {
