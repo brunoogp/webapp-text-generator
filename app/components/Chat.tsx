@@ -19,7 +19,7 @@ export default function AuthenticatedChat() {
         setUser(user);
         loadUserConversations(user.uid);
       } else {
-        window.location.href = "/login";
+        window.location.href = "https://lautobranding.com.br/area-de-membros";
       }
     });
     return () => unsubscribe();
