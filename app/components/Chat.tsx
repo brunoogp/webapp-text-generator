@@ -63,7 +63,7 @@ export default function Chat() {
   return (
     <div className="flex h-screen w-screen bg-black text-white">
       {/* Menu Lateral */}
-      <aside className="w-64 bg-gray-900 p-4 flex flex-col">
+      <aside className="w-64 bg-gray-950 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
           <Menu size={24} className="cursor-pointer" />
