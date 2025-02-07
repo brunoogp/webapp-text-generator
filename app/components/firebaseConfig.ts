@@ -1,18 +1,18 @@
 // firebaseConfig.ts
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAlQEkdSArdyNYMzKVUBJQs5yRoww55Pmc",
   authDomain: "assistente-de-midias-sociais.firebaseapp.com",
   projectId: "assistente-de-midias-sociais",
-  storageBucket: "assistente-de-midias-sociais.firebasestorage.app",
+  storageBucket: "assistente-de-midias-sociais.appspot.com", // Corrigido
   messagingSenderId: "91269961112",
   appId: "1:91269961112:web:6f44e5fff0105c5f6ac7ed"
 };
 
-// Inicializa o Firebase apenas se ainda não foi inicializado
-const app = initializeApp(firebaseConfig);
+// Garante que o Firebase só seja inicializado uma vez
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 
-export { auth };
+export { auth, app };
