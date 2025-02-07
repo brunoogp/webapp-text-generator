@@ -1,30 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { Menu, PlusCircle, Send } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Menu, PlusCircle, Send, Copy, Trash2, Edit } from "lucide-react";
+
+interface Message {
+  role: string;
+  content: string;
+  timestamp?: string;
+}
+
+interface ChatSession {
+  id: number;
+  title: string;
+  messages: Message[];
+  conversationId?: string | null;
+}
 
 export default function Chat() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [chats, setChats] = useState<ChatSession[]>([
+    { 
+      id: 1, 
+      title: "Conversa 1", 
+      messages: [],
+      conversationId: null 
+    }
+  ]);
+  const [activeChat, setActiveChat] = useState(0);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
-  const [activeChat, setActiveChat] = useState(0);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
-  const cleanText = (text: string) => {
-    return text
-      .replace(/\s+\./g, ".")
-      .replace(/\s+,/g, ",")
-      .replace(/\s+/g, " ")
-      .trim();
-  };
+  const sendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || loading) return;
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
+    const timestamp = new Date().toLocaleTimeString();
+    const userMessage: Message = { 
+      role: "user", 
+      content: input, 
+      timestamp 
+    };
 
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
+    const updatedChats = [...chats];
+    const currentChat = updatedChats[activeChat];
+    currentChat.messages.push(userMessage);
+    setChats(updatedChats);
     setLoading(true);
 
     try {
@@ -33,7 +54,7 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: input,
-          conversation_id: conversationId,
+          conversation_id: currentChat.conversationId,
         }),
       });
 
@@ -44,73 +65,150 @@ export default function Chat() {
         return;
       }
 
-      const cleanedResponse = cleanText(data.response);
-      setMessages([...newMessages, { role: "bot", content: cleanedResponse }]);
+      const botMessage: Message = { 
+        role: "bot", 
+        content: data.response, 
+        timestamp: new Date().toLocaleTimeString() 
+      };
 
+      currentChat.messages.push(botMessage);
       if (data.conversation_id) {
-        setConversationId(data.conversation_id);
+        currentChat.conversationId = data.conversation_id;
       }
+      
+      setChats(updatedChats);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
+    } finally {
+      setInput("");
+      setLoading(false);
     }
-
-    setInput("");
-    setLoading(false);
   };
+
+  const startNewChat = () => {
+    const newId = chats.length + 1;
+    const newChat: ChatSession = {
+      id: newId,
+      title: `Conversa ${newId}`,
+      messages: [],
+      conversationId: null
+    };
+    setChats([...chats, newChat]);
+    setActiveChat(chats.length);
+  };
+
+  const renameChat = (index: number, newTitle: string) => {
+    const updatedChats = [...chats];
+    updatedChats[index].title = newTitle;
+    setChats(updatedChats);
+    setEditingTitle(null);
+  };
+
+  const deleteChat = (index: number) => {
+    if (chats.length > 1) {
+      const updatedChats = chats.filter((_, i) => i !== index);
+      setChats(updatedChats);
+      setActiveChat(Math.min(index, updatedChats.length - 1));
+    }
+  };
+
+  const copyMessage = (message: string) => {
+    navigator.clipboard.writeText(message);
+  };
+
+  useEffect(() => {
+    if (editingTitle !== null) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editingTitle]);
 
   return (
     <div className="flex h-screen w-screen bg-black text-white">
-      {/* Menu Lateral */}
       <aside className="w-72 bg-gray-900 p-4 flex flex-col border-r border-gray-800">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-300">Axys™</h2>
           <Menu size={24} className="cursor-pointer text-gray-400" />
         </div>
         <button
-          className="flex items-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-500 transition"
-          onClick={() => {
-            setActiveChat(history.length);
-            setHistory([...history, `Conversa ${history.length + 1}`]);
-            setMessages([]);
-            setConversationId(null);
-          }}
+          className="flex items-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-500 transition mb-4"
+          onClick={startNewChat}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
-        <div className="mt-4 flex-1 overflow-y-auto space-y-2">
-          {history.map((item, index) => (
-            <div
-              key={index}
-              className={`p-3 rounded-lg cursor-pointer transition ${
+        <div className="flex-1 overflow-y-auto space-y-2">
+          {chats.map((chat, index) => (
+            <div 
+              key={chat.id}
+              className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition ${
                 activeChat === index
                   ? "bg-blue-500 text-white"
                   : "bg-gray-800 hover:bg-gray-700 text-gray-300"
               }`}
-              onClick={() => {
-                setActiveChat(index);
-                setMessages([]);
-                setConversationId(null);
-              }}
             >
-              {item}
+              {editingTitle === index ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  defaultValue={chat.title}
+                  onBlur={(e) => renameChat(index, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      renameChat(index, e.currentTarget.value);
+                    }
+                  }}
+                  className="w-full bg-transparent text-white outline-none"
+                />
+              ) : (
+                <span 
+                  onClick={() => setActiveChat(index)}
+                  className="flex-1"
+                >
+                  {chat.title}
+                </span>
+              )}
+              <div className="flex items-center gap-2">
+                <Edit 
+                  size={16} 
+                  onClick={() => setEditingTitle(index)}
+                  className="text-gray-400 hover:text-white"
+                />
+                {chats.length > 1 && (
+                  <Trash2 
+                    size={16} 
+                    onClick={() => deleteChat(index)}
+                    className="text-red-400 hover:text-red-600"
+                  />
+                )}
+              </div>
             </div>
           ))}
         </div>
       </aside>
 
-      {/* Área do Chat */}
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-950 border-l border-gray-800">
-          {messages.map((msg, index) => (
+          {chats[activeChat].messages.map((msg, index) => (
             <div
               key={index}
-              className={`p-3 rounded-lg max-w-lg border ${
+              className={`p-3 rounded-lg max-w-lg border relative group ${
                 msg.role === "user"
                   ? "bg-blue-600 text-white self-end ml-auto border-blue-400"
                   : "bg-gray-800 text-gray-300 self-start border-gray-700"
               }`}
             >
+              {msg.role === "bot" && (
+                <button 
+                  onClick={() => copyMessage(msg.content)}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"
+                >
+                  <Copy size={16} />
+                </button>
+              )}
               {msg.content}
+              {msg.timestamp && (
+                <div className="text-xs text-gray-400 mt-1">{msg.timestamp}</div>
+              )}
             </div>
           ))}
           {loading && (
@@ -120,8 +218,10 @@ export default function Chat() {
           )}
         </div>
 
-        {/* Campo de Entrada */}
-        <div className="p-4 bg-gray-900 flex w-full border-t border-gray-800">
+        <form 
+          onSubmit={sendMessage}
+          className="p-4 bg-gray-900 flex w-full border-t border-gray-800"
+        >
           <input
             type="text"
             className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none placeholder-gray-500"
@@ -130,13 +230,13 @@ export default function Chat() {
             placeholder="Digite sua mensagem..."
           />
           <button
+            type="submit"
             className="ml-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition flex items-center gap-2"
-            onClick={sendMessage}
             disabled={loading}
           >
             {loading ? "Enviando..." : <Send size={18} />}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );
