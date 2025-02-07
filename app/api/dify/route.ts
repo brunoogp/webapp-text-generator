@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // Armazena o ID da conversa para manter o contexto
+let conversationId = ""; // 🔥 Armazena o ID da conversa para manter o contexto
 
 export async function POST(req: NextRequest) {
     try {
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
             inputs: {},
             query: requestData.query,
             response_mode: "streaming",
-            conversation_id: conversationId || "", 
+            conversation_id: conversationId || "",
             user: "user-123",
         };
 
@@ -32,10 +32,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
-        // 🔥 Processamento correto do streaming para evitar fragmentação
+        // 🔥 Processamento correto do streaming para evitar cortes e erros
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let buffer = ""; // Armazena os dados brutos antes de montar a resposta final
+        let buffer = "";
         let finalResponse = "";
 
         while (true) {
@@ -44,32 +44,31 @@ export async function POST(req: NextRequest) {
 
             buffer += decoder.decode(value, { stream: true });
 
-            // 🔥 Extraindo corretamente os dados no formato `data: {...}`
-            let matches = buffer.match(/data:\s*(\{.*?\})/g);
+            // 🔥 Corrigindo o formato da resposta do Dify
+            const matches = buffer.match(/data:\s*({.*?})/g);
             if (matches) {
                 matches.forEach(match => {
                     try {
-                        const jsonData = JSON.parse(match.replace("data: ", ""));
+                        const jsonData = JSON.parse(match.replace("data: ", "").trim());
                         if (jsonData.answer) {
-                            finalResponse += jsonData.answer;
+                            finalResponse += jsonData.answer + " ";
                         }
                         if (jsonData.conversation_id) {
-                            conversationId = jsonData.conversation_id; // Mantém o ID da conversa
+                            conversationId = jsonData.conversation_id;
                         }
                     } catch (error) {
-                        console.error("Erro ao processar JSON da resposta:", error);
+                        console.error("Erro ao processar JSON:", error);
                     }
                 });
 
-                // Limpa o buffer após processar os blocos capturados
-                buffer = "";
+                buffer = ""; // Limpa o buffer para evitar duplicação
             }
         }
 
-        // 🔥 Remove espaços extras e formata corretamente
-        finalResponse = finalResponse.replace(/\s+/g, " ").trim();
+        // 🔥 Ajusta espaços e formata corretamente a resposta final
+        const cleanedResponse = finalResponse.replace(/\s+/g, " ").trim();
 
-        return NextResponse.json({ response: finalResponse, conversation_id: conversationId });
+        return NextResponse.json({ response: cleanedResponse, conversation_id: conversationId });
 
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
