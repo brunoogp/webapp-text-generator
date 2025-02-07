@@ -13,7 +13,11 @@ export default function Chat() {
 
   // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
   const cleanText = (text: string) => {
-    return text.replace(/\s+/g, " ").trim(); // 🔥 Remove espaços extras mantendo a formatação correta
+    return text
+      .replace(/\s+\./g, ".") // Remove espaços antes de pontos finais
+      .replace(/\s+,/g, ",")  // Remove espaços antes de vírgulas
+      .replace(/\s+/g, " ")   // Substitui múltiplos espaços seguidos por um único espaço
+      .trim();                // Remove espaços no início e no fim
   };
 
   const sendMessage = async () => {
@@ -40,7 +44,7 @@ export default function Chat() {
         return;
       }
 
-      // ✅ Aplica limpeza no texto antes de exibir
+      // ✅ Aplica limpeza no texto antes de exibir na interface
       const cleanedResponse = cleanText(data.response);
 
       setMessages([...newMessages, { role: "bot", content: cleanedResponse }]);
@@ -70,7 +74,7 @@ export default function Chat() {
             setActiveChat(history.length);
             setHistory([...history, `Conversa ${history.length + 1}`]);
             setMessages([]);
-            setConversationId(null); // 🔥 Reseta o ID da conversa para iniciar do zero
+            setConversationId(null);
           }}
         >
           <PlusCircle size={18} /> Nova conversa
@@ -85,7 +89,7 @@ export default function Chat() {
               onClick={() => {
                 setActiveChat(index);
                 setMessages([]);
-                setConversationId(null); // ❌ Reseta o ID para evitar continuidade errada
+                setConversationId(null);
               }}
             >
               {item}
