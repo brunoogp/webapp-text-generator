@@ -90,7 +90,6 @@ export default function Chat() {
       setLoading(false);
     }
   };
-
   const startNewChat = () => {
     const newId = history.length + 1;
     setActiveChat(newId - 1);
