@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Menu, PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../firebaseConfig"; // 🔥 Importando Firebase corretamente
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function AuthenticatedChat() {
   const [user, setUser] = useState(null);
@@ -14,6 +13,7 @@ export default function AuthenticatedChat() {
   const [activeConversation, setActiveConversation] = useState(null);
 
   useEffect(() => {
+    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user);
@@ -53,31 +53,39 @@ export default function AuthenticatedChat() {
   };
 
   const handleLogout = async () => {
+    const auth = getAuth();
     await signOut(auth);
     window.location.href = "/login";
   };
 
   // 🔥 Função para limpar espaços extras no texto da resposta
   const cleanText = (text) => {
-    return text
-      .replace(/\s+\./g, ".")
-      .replace(/\s+,/g, ",")
-      .replace(/\s+/g, " ")
-      .trim();
+    return text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
   };
 
   const sendMessage = async () => {
     if (!input.trim() || !activeConversation || !user) return;
 
-    const newMessage = { role: "user", content: input };
-    const updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
     setLoading(true);
 
     try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+
+      if (!currentUser) {
+        console.error("Usuário não autenticado.");
+        setLoading(false);
+        return;
+      }
+
+      const token = await currentUser.getIdToken(); // 🔥 Obtém o token JWT do Firebase
+
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // 🔥 Passa o token no header
+        },
         body: JSON.stringify({
           query: input,
           conversation_id: activeConversation.id,
@@ -89,24 +97,14 @@ export default function AuthenticatedChat() {
 
       if (data.error) {
         console.error("Erro da API:", data.error);
-        setMessages([...updatedMessages, { role: "bot", content: "Erro ao processar a resposta." }]);
+        setMessages([...messages, { role: "bot", content: "Erro ao processar a resposta." }]);
         return;
       }
 
       // 🔥 Aplica a limpeza no texto antes de exibir
       const botMessage = { role: "bot", content: cleanText(data.response) };
-      const finalMessages = [...updatedMessages, botMessage];
-      setMessages(finalMessages);
+      setMessages([...messages, { role: "user", content: input }, botMessage]);
 
-      const updatedConversation = {
-        ...activeConversation,
-        messages: finalMessages,
-      };
-      const updatedConversations = conversations.map((conv) =>
-        conv.id === activeConversation.id ? updatedConversation : conv
-      );
-      setConversations(updatedConversations);
-      saveConversations(updatedConversations, user.uid);
     } catch (error) {
       console.error("Erro:", error);
     }
