@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Menu, PlusCircle, Send, LogOut } from 'lucide-react';
-import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Menu, PlusCircle, Send, LogOut } from "lucide-react";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function AuthenticatedChat() {
   const [user, setUser] = useState(null);
@@ -12,21 +14,19 @@ export default function AuthenticatedChat() {
 
   useEffect(() => {
     const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, user => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user);
         loadUserConversations(user.uid);
       } else {
-        window.location.href = '/login';
+        window.location.href = "/login";
       }
     });
     return () => unsubscribe();
   }, []);
 
   const loadUserConversations = async (userId) => {
-    // Here you'd fetch conversations from your database
-    // For now using localStorage as example
-    const savedConversations = JSON.parse(localStorage.getItem(`conversations_${userId}`) || '[]');
+    const savedConversations = JSON.parse(localStorage.getItem(`conversations_${userId}`) || "[]");
     setConversations(savedConversations);
     if (savedConversations.length > 0) {
       setActiveConversation(savedConversations[0]);
@@ -38,7 +38,7 @@ export default function AuthenticatedChat() {
       id: Date.now().toString(),
       title: `Conversa ${conversations.length + 1}`,
       messages: [],
-      userId: user.uid
+      userId: user.uid,
     };
     setConversations([newConversation, ...conversations]);
     setActiveConversation(newConversation);
@@ -53,6 +53,15 @@ export default function AuthenticatedChat() {
   const handleLogout = async () => {
     const auth = getAuth();
     await signOut(auth);
+  };
+
+  // 🔥 Função para limpar espaços extras no texto da resposta
+  const cleanText = (text) => {
+    return text
+      .replace(/\s+\./g, ".")
+      .replace(/\s+,/g, ",")
+      .replace(/\s+/g, " ")
+      .trim();
   };
 
   const sendMessage = async () => {
@@ -70,30 +79,30 @@ export default function AuthenticatedChat() {
         body: JSON.stringify({
           query: input,
           conversation_id: activeConversation.id,
-          user_id: user.uid
+          user_id: user.uid,
         }),
       });
 
       const data = await response.json();
-      
+
       if (data.error) throw new Error(data.error);
 
-      const botMessage = { role: "bot", content: data.response };
+      // 🔥 Aplica a limpeza no texto antes de exibir
+      const botMessage = { role: "bot", content: cleanText(data.response) };
       const finalMessages = [...updatedMessages, botMessage];
       setMessages(finalMessages);
 
-      // Update conversation in state and storage
       const updatedConversation = {
         ...activeConversation,
-        messages: finalMessages
+        messages: finalMessages,
       };
-      const updatedConversations = conversations.map(conv => 
+      const updatedConversations = conversations.map((conv) =>
         conv.id === activeConversation.id ? updatedConversation : conv
       );
       setConversations(updatedConversations);
       saveConversations(updatedConversations, user.uid);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Erro:", error);
     }
 
     setInput("");
@@ -102,17 +111,15 @@ export default function AuthenticatedChat() {
 
   return (
     <div className="flex h-screen w-screen bg-black text-white">
+      {/* Menu Lateral */}
       <aside className="w-64 bg-gray-950 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
-          <button
-            onClick={handleLogout}
-            className="p-2 hover:bg-gray-800 rounded-full"
-          >
+          <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
             <LogOut size={20} />
           </button>
         </div>
-        
+
         <button
           className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
           onClick={createNewConversation}
@@ -138,6 +145,7 @@ export default function AuthenticatedChat() {
         </div>
       </aside>
 
+      {/* Área do Chat */}
       <div className="flex flex-col flex-1">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((msg, index) => (
@@ -151,19 +159,18 @@ export default function AuthenticatedChat() {
             </div>
           ))}
           {loading && (
-            <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">
-              Digitando...
-            </div>
+            <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>
           )}
         </div>
 
+        {/* Campo de Entrada */}
         <div className="p-4 bg-gray-900 flex">
           <input
             type="text"
             className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Digite sua mensagem..."
+            placeholder={activeConversation ? "Digite sua mensagem..." : "Selecione ou inicie uma conversa"}
             disabled={!activeConversation}
           />
           <button
