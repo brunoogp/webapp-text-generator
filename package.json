@@ -12,6 +12,7 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "firebase-admin": "^11.10.0"
     "firebase": "^10.7.0",
     "uuid": "^9.0.0",
     "lucide-react": "^0.285.0",
