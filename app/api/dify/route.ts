@@ -1,132 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
 
-interface ChatRequest {
-    query: string;
-    conversation_id?: string;
-}
+let conversationId = ""; // 🔥 Mantém o ID da conversa para continuidade
 
 export async function POST(req: NextRequest) {
     try {
-        const apiKey = app-feeIgILXxX4GCEzRj8aORcYf
-        
-        // Verificação da API key
-        if (!apiKey) {
-            console.error("API Key não encontrada nas variáveis de ambiente");
-            return NextResponse.json(
-                { error: "Configuração do servidor incompleta" },
-                { status: 500 }
-            );
+        const requestData = await req.json();
+
+        if (!requestData.query) {
+            return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
         }
 
-        const requestData: ChatRequest = await req.json();
-        
-        if (!requestData.query) {
-            return NextResponse.json(
-                { error: "Parâmetro 'query' é obrigatório." },
-                { status: 400 }
-            );
+        // Se o frontend enviar um conversation_id, utilizamos ele
+        if (requestData.conversation_id) {
+            conversationId = requestData.conversation_id;
         }
 
         const payload = {
             inputs: {},
             query: requestData.query,
-            response_mode: "streaming",
-            conversation_id: requestData.conversation_id || "",
+            response_mode: "streaming", // 🔥 Mantém o modo streaming
+            conversation_id: conversationId || "", // 🔥 Mantém a conversa ativa
             user: "user-123",
         };
 
-        // Adiciona timeout
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
+        const response = await fetch("https://api.dify.ai/v1/chat-messages", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer app-1BRyFUQeh2Q1VmwgsJsLQRCr", // 🔥 Troque pelo seu token real
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        });
 
-        try {
-            const response = await fetch("https://api.dify.ai/v1/chat-messages", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-                signal: controller.signal,
-            });
-
-            // Log detalhado em caso de erro
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error("Resposta da API Dify:", {
-                    status: response.status,
-                    statusText: response.statusText,
-                    headers: Object.fromEntries(response.headers),
-                    body: errorText,
-                });
-
-                return NextResponse.json(
-                    { 
-                        error: `Erro na API do Dify (${response.status}): ${errorText}`,
-                        details: {
-                            status: response.status,
-                            statusText: response.statusText
-                        }
-                    },
-                    { status: response.status }
-                );
-            }
-
-            if (!response.body) {
-                throw new Error("Response body está vazio");
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let fullResponse = "";
-            let currentConversationId = "";
-
-            try {
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-
-                    for (const line of lines) {
-                        const match = line.match(/data:\s*({.*})/);
-                        if (match) {
-                            try {
-                                const jsonData = JSON.parse(match[1]);
-                                if (jsonData.answer) {
-                                    fullResponse += jsonData.answer + " ";
-                                }
-                                if (jsonData.conversation_id) {
-                                    currentConversationId = jsonData.conversation_id;
-                                }
-                            } catch (error) {
-                                console.error("Erro ao processar JSON da resposta:", error);
-                            }
-                        }
-                    }
-                }
-            } finally {
-                reader.releaseLock();
-            }
-
-            return NextResponse.json({
-                response: fullResponse.trim(),
-                conversation_id: currentConversationId,
-            });
-
-        } finally {
-            clearTimeout(timeout);
+        if (!response.ok || !response.body) {
+            const errorData = await response.json();
+            return NextResponse.json({ error: `Erro na API do Dify: ${errorData.message || response.statusText}` }, { status: response.status });
         }
 
+        // 🔥 Processando a resposta em streaming
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullResponse = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+
+            // 🔥 Extraindo corretamente os dados JSON da resposta do streaming
+            const match = chunk.match(/data:\s*({.*})/);
+            if (match) {
+                try {
+                    const jsonData = JSON.parse(match[1]);
+                    if (jsonData.answer) {
+                        fullResponse += jsonData.answer + " ";
+                    }
+                    if (jsonData.conversation_id) {
+                        conversationId = jsonData.conversation_id; // 🔥 Atualiza o ID da conversa
+                    }
+                } catch (error) {
+                    console.error("Erro ao processar JSON da resposta:", error);
+                }
+            }
+        }
+
+        return NextResponse.json({
+            response: fullResponse.trim(),
+            conversation_id: conversationId, // 🔥 Retornamos o ID da conversa para o frontend armazenar
+        });
+
     } catch (error) {
-        console.error("Erro completo:", error);
-        return NextResponse.json(
-            { 
-                error: error instanceof Error ? error.message : "Erro desconhecido",
-                details: error instanceof Error ? error.stack : undefined
-            },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
