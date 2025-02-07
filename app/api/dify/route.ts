@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
                     try {
                         const jsonData = JSON.parse(match.replace("data: ", "").trim());
                         if (jsonData.answer) {
-                            finalResponse += jsonData.answer; // 🔥 Evita adicionar espaços extras
+                            finalResponse += jsonData.answer + " "; // 🔥 Agora adicionamos um espaço correto entre palavras
                         }
                         if (jsonData.conversation_id) {
                             conversationId = jsonData.conversation_id;
@@ -65,12 +65,15 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 🔥 Remove quebras desnecessárias e caracteres incorretos
+        // 🔥 Remove quebras desnecessárias e caracteres truncados
         const cleanedResponse = finalResponse
             .replace(/\s+\./g, ".") // Evita espaço antes de ponto final
             .replace(/\s+,/g, ",")  // Evita espaço antes de vírgula
             .replace(/\s+/g, " ")   // Remove múltiplos espaços
             .trim();                // Remove espaços extras no começo e fim
+
+        // ✅ Pequeno delay para evitar truncamento no streaming
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
         return NextResponse.json({ response: cleanedResponse, conversation_id: conversationId });
 
