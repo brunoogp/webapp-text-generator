@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { PlusCircle, Send, LogOut } from "lucide-react";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "../firebaseConfig"; // 🔥 Corrigido para importar de firebaseConfig.ts
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Chat() {
   const [user, setUser] = useState(null);
@@ -13,7 +14,6 @@ export default function Chat() {
   const [activeConversation, setActiveConversation] = useState(null);
 
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user);
@@ -53,12 +53,10 @@ export default function Chat() {
   };
 
   const handleLogout = async () => {
-    const auth = getAuth();
     await signOut(auth);
     window.location.href = "https://lautobranding.com.br/area-de-membros";
   };
 
-  // 🔥 Função para limpar espaços extras no texto da resposta
   const cleanText = (text) => {
     return text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
   };
@@ -69,7 +67,6 @@ export default function Chat() {
     setLoading(true);
 
     try {
-      const auth = getAuth();
       const currentUser = auth.currentUser;
 
       if (!currentUser) {
@@ -101,7 +98,6 @@ export default function Chat() {
         return;
       }
 
-      // 🔥 Aplica a limpeza no texto antes de exibir
       const botMessage = { role: "bot", content: cleanText(data.response) };
       setMessages((prevMessages) => [...prevMessages, { role: "user", content: input }, botMessage]);
 
@@ -115,7 +111,6 @@ export default function Chat() {
 
   return (
     <div className="flex h-screen w-screen bg-black text-white">
-      {/* Menu Lateral */}
       <aside className="w-64 bg-gray-950 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
@@ -149,7 +144,6 @@ export default function Chat() {
         </div>
       </aside>
 
-      {/* Área do Chat */}
       <div className="flex flex-col flex-1">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((msg, index) => (
@@ -167,7 +161,6 @@ export default function Chat() {
           )}
         </div>
 
-        {/* Campo de Entrada */}
         <div className="p-4 bg-gray-900 flex">
           <input
             type="text"
