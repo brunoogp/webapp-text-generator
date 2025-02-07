@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Menu, PlusCircle, Send, LogOut } from "lucide-react";
+import { PlusCircle, Send, LogOut } from "lucide-react";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 
-export default function AuthenticatedChat() {
+export default function Chat() {
   const [user, setUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -55,7 +55,7 @@ export default function AuthenticatedChat() {
   const handleLogout = async () => {
     const auth = getAuth();
     await signOut(auth);
-    window.location.href = "/login";
+    window.location.href = "https://lautobranding.com.br/area-de-membros";
   };
 
   // 🔥 Função para limpar espaços extras no texto da resposta
@@ -103,7 +103,7 @@ export default function AuthenticatedChat() {
 
       // 🔥 Aplica a limpeza no texto antes de exibir
       const botMessage = { role: "bot", content: cleanText(data.response) };
-      setMessages([...messages, { role: "user", content: input }, botMessage]);
+      setMessages((prevMessages) => [...prevMessages, { role: "user", content: input }, botMessage]);
 
     } catch (error) {
       console.error("Erro:", error);
