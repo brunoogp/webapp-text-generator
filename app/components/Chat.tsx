@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Menu, PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "app/components/firebaseConfig.ts"; // 🔥 Importando Firebase corretamente
+import { auth } from "../components/firebaseConfig"; // 🔥 Importando Firebase corretamente
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function AuthenticatedChat() {
