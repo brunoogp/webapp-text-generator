@@ -37,19 +37,18 @@ export async function POST(req: NextRequest) {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let buffer = ""; // Buffer para acumular chunks parciais
+        let buffer = "";
         let fullResponse = "";
+        let isFirstChunk = true;
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             
-            // Decodifica o chunk atual e adiciona ao buffer
             buffer += decoder.decode(value, { stream: true });
             
-            // Processa todas as linhas completas no buffer
             const lines = buffer.split('\n');
-            buffer = lines.pop() || ""; // Mantém a última linha incompleta no buffer
+            buffer = lines.pop() || "";
 
             for (const line of lines) {
                 if (line.trim().startsWith('data:')) {
@@ -58,7 +57,22 @@ export async function POST(req: NextRequest) {
                         if (jsonStr) {
                             const jsonData = JSON.parse(jsonStr);
                             if (jsonData.answer) {
-                                fullResponse = fullResponse + jsonData.answer;
+                                // Preserva quebras de linha e formatação markdown
+                                const answer = jsonData.answer;
+                                
+                                // Se for o primeiro chunk, não precisamos adicionar espaço
+                                if (isFirstChunk) {
+                                    fullResponse = answer;
+                                    isFirstChunk = false;
+                                } else {
+                                    // Verifica se precisamos adicionar espaço entre os chunks
+                                    const needsSpace = !fullResponse.endsWith(' ') && 
+                                                     !fullResponse.endsWith('\n') && 
+                                                     !answer.startsWith(' ') && 
+                                                     !answer.startsWith('\n');
+                                    
+                                    fullResponse += needsSpace ? ' ' + answer : answer;
+                                }
                             }
                             if (jsonData.conversation_id) {
                                 conversationId = jsonData.conversation_id;
@@ -71,14 +85,19 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Processa qualquer dado restante no buffer
+        // Processa buffer final se necessário
         if (buffer.trim()) {
             const match = buffer.match(/data:\s*({.*})/);
             if (match) {
                 try {
                     const jsonData = JSON.parse(match[1]);
                     if (jsonData.answer) {
-                        fullResponse = fullResponse + jsonData.answer;
+                        const needsSpace = !fullResponse.endsWith(' ') && 
+                                         !fullResponse.endsWith('\n') && 
+                                         !jsonData.answer.startsWith(' ') && 
+                                         !jsonData.answer.startsWith('\n');
+                        
+                        fullResponse += needsSpace ? ' ' + jsonData.answer : jsonData.answer;
                     }
                 } catch (error) {
                     console.error("Erro ao processar último chunk:", error);
