@@ -45,17 +45,17 @@ export async function POST(req: NextRequest) {
             buffer += decoder.decode(value, { stream: true });
         }
 
-        // 🔥 Processando os blocos corretamente para evitar palavras truncadas
+        // 🔥 Processando corretamente os blocos da resposta para evitar cortes
         const matches = buffer.match(/data:\s*({.*?})/g);
         if (matches) {
             matches.forEach(match => {
                 try {
                     const jsonData = JSON.parse(match.replace("data: ", "").trim());
                     if (jsonData.answer) {
-                        finalResponse += jsonData.answer + " "; // ✅ Adiciona espaço corretamente entre as palavras
+                        finalResponse += jsonData.answer + " "; // ✅ Adiciona espaço corretamente entre palavras
                     }
                     if (jsonData.conversation_id) {
-                        conversationId = jsonData.conversation_id; // 🔥 Mantém o ID da conversa para continuidade
+                        conversationId = jsonData.conversation_id; // 🔥 Mantém o ID da conversa
                     }
                 } catch (error) {
                     console.error("Erro ao processar JSON:", error);
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // 🔥 Limpeza final do texto para evitar erros de formatação
+        // ✅ Aplicando limpeza final para garantir espaçamento correto e frases bem formatadas
         const cleanedResponse = finalResponse
             .replace(/\s+\./g, ".")  // Evita espaço antes de ponto final
             .replace(/\s+,/g, ",")   // Evita espaço antes de vírgula
