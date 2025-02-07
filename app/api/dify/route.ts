@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-let conversationId = ""; // 🔥 Mantém o ID da conversa para garantir continuidade
+let conversationId = ""; // 🔥 Mantém o ID da conversa para continuidade
 
 export async function POST(req: NextRequest) {
     try {
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
             buffer += decoder.decode(value, { stream: true });
 
-            // 🔥 Filtrando corretamente os dados no formato 'data: { ... }'
+            // 🔥 Captura corretamente os blocos de JSON na stream do Dify
             const matches = buffer.match(/data:\s*({.*})/g);
             if (matches) {
                 matches.forEach((jsonString) => {
@@ -58,17 +58,18 @@ export async function POST(req: NextRequest) {
                         console.error("Erro ao processar JSON:", error);
                     }
                 });
-                buffer = "";
+                buffer = ""; // 🔥 Limpa o buffer após processar
             }
         }
 
-        // 🔥 Tratamento Final: Corrige espaços e palavras cortadas
+        // 🔥 Tratamento avançado para evitar palavras quebradas e espaçamentos errados
         fullResponse = fullResponse
+            .replace(/-\s+/g, "")  // Remove hifens e espaços adicionados no streaming
             .replace(/\s{2,}/g, " ") // Remove múltiplos espaços
-            .replace(/\s+\./g, ".")  // Remove espaços antes de pontos finais
-            .replace(/\s+,/g, ",")   // Remove espaços antes de vírgulas
-            .replace(/\s+\?/g, "?")  // Remove espaços antes de interrogações
-            .replace(/\s+\!/g, "!")  // Remove espaços antes de exclamações
+            .replace(/\s+\./g, ".")  // Corrige espaços antes de pontos finais
+            .replace(/\s+,/g, ",")   // Corrige espaços antes de vírgulas
+            .replace(/\s+\?/g, "?")  // Corrige espaços antes de interrogações
+            .replace(/\s+\!/g, "!")  // Corrige espaços antes de exclamações
             .trim();                 // Remove espaços no início e no fim
 
         return NextResponse.json({ response: fullResponse, conversation_id: conversationId });
