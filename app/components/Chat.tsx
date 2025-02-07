@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { Menu, PlusCircle, Send, LogOut } from "lucide-react";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./firebaseConfig"; // 🔥 Importando Firebase corretamente
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function AuthenticatedChat() {
   const [user, setUser] = useState(null);
@@ -13,7 +14,6 @@ export default function AuthenticatedChat() {
   const [activeConversation, setActiveConversation] = useState(null);
 
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user);
@@ -34,6 +34,8 @@ export default function AuthenticatedChat() {
   };
 
   const createNewConversation = () => {
+    if (!user) return;
+
     const newConversation = {
       id: Date.now().toString(),
       title: `Conversa ${conversations.length + 1}`,
@@ -51,8 +53,8 @@ export default function AuthenticatedChat() {
   };
 
   const handleLogout = async () => {
-    const auth = getAuth();
     await signOut(auth);
+    window.location.href = "/login";
   };
 
   // 🔥 Função para limpar espaços extras no texto da resposta
@@ -65,7 +67,7 @@ export default function AuthenticatedChat() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeConversation) return;
+    if (!input.trim() || !activeConversation || !user) return;
 
     const newMessage = { role: "user", content: input };
     const updatedMessages = [...messages, newMessage];
@@ -85,7 +87,11 @@ export default function AuthenticatedChat() {
 
       const data = await response.json();
 
-      if (data.error) throw new Error(data.error);
+      if (data.error) {
+        console.error("Erro da API:", data.error);
+        setMessages([...updatedMessages, { role: "bot", content: "Erro ao processar a resposta." }]);
+        return;
+      }
 
       // 🔥 Aplica a limpeza no texto antes de exibir
       const botMessage = { role: "bot", content: cleanText(data.response) };
