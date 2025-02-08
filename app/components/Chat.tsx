@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Menu, PlusCircle, Send, Clipboard, Trash2, Edit, Moon, Sun, ExternalLink, MessageSquare } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
+// Componente de alerta personalizado
+const CustomAlert = ({ message }) => (
+  <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
+    {message}
+  </div>
+);
 
 export default function Chat() {
   const [conversations, setConversations] = useState(() => {
@@ -340,13 +346,9 @@ export default function Chat() {
           </>
         )}
 
-        {/* Copy Alert */}
+        {/* Custom Alert */}
         {showCopyAlert && (
-          <Alert className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-green-500 text-white">
-            <AlertDescription>
-              Texto copiado com sucesso!
-            </AlertDescription>
-          </Alert>
+          <CustomAlert message="Texto copiado com sucesso!" />
         )}
       </div>
     </div>
