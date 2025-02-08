@@ -1,5 +1,3 @@
-LAYOUT BLACK APROVADO
-
 "use client";
 
 import { useState } from "react";
