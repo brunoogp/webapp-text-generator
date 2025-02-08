@@ -84,18 +84,8 @@ export default function Chat() {
           </div>
         </div>
 
-        <button
-          className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
-          onClick={() => {
-            setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
-            setActiveChat(conversations.length);
-          }}
-        >
-          <PlusCircle size={18} /> Nova conversa
-        </button>
-
-        <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {conversations.map((conv) => (
+        <div className="flex-1 overflow-y-auto">
+          {conversations.map((conv, index) => (
             <div key={conv.id} className={`p-2 rounded-lg flex items-center justify-between cursor-pointer transition ${activeChat === conv.id ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"}`}>
               {editingTitle === conv.id ? (
                 <input
@@ -115,6 +105,16 @@ export default function Chat() {
             </div>
           ))}
         </div>
+
+        <button
+          className="mt-4 flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
+          onClick={() => {
+            setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
+            setActiveChat(conversations.length);
+          }}
+        >
+          <PlusCircle size={18} /> Nova conversa
+        </button>
       </aside>
 
       <div className="flex flex-col flex-1 h-screen">
@@ -122,12 +122,6 @@ export default function Chat() {
           <div className="flex flex-col items-center justify-center flex-1 text-center">
             <h1 className="text-3xl font-semibold">Bem-vindo ao Axys™</h1>
             <p className="text-gray-400">Inicie uma nova conversa para começar.</p>
-            <button className="mt-6 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition" onClick={() => {
-              setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
-              setActiveChat(conversations.length);
-            }}>
-              Iniciar Nova Conversa
-            </button>
           </div>
         ) : (
           <>
