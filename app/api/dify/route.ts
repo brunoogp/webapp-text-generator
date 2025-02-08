@@ -1,11 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuth } from "firebase-admin/auth";
-import admin from "firebase-admin";
-
-// 🔥 Inicializa Firebase Admin (se ainda não estiver inicializado)
-if (!admin.apps.length) {
-    admin.initializeApp();
-}
 
 let conversationId = "";
 
@@ -14,19 +7,6 @@ export async function POST(req: NextRequest) {
         const requestData = await req.json();
         if (!requestData.query) {
             return NextResponse.json({ error: "Parâmetro 'query' é obrigatório." }, { status: 400 });
-        }
-
-        // 🔥 Adiciona verificação de autenticação Firebase
-        const authHeader = req.headers.get("Authorization");
-        if (!authHeader) {
-            return NextResponse.json({ error: "Token de autenticação ausente" }, { status: 401 });
-        }
-
-        try {
-            const decodedToken = await getAuth().verifyIdToken(authHeader.replace("Bearer ", ""));
-            console.log("Usuário autenticado:", decodedToken.uid);
-        } catch (error) {
-            return NextResponse.json({ error: "Token inválido ou expirado" }, { status: 403 });
         }
 
         if (requestData.conversation_id) {
@@ -38,7 +18,7 @@ export async function POST(req: NextRequest) {
             query: requestData.query,
             response_mode: "streaming",
             conversation_id: conversationId || "",
-            user: "user-123",
+            user: "anonymous", // Usuário anônimo já que não há mais autenticação
         };
 
         const response = await fetch("https://api.dify.ai/v1/chat-messages", {
