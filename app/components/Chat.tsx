@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../components/firebaseConfig"; // 🔥 Corrigido para importar de firebaseConfig.ts
+import { auth } from "../components/firebaseConfig"; // 🔥 Certifique-se de que esse caminho está correto
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Chat() {
@@ -19,7 +19,12 @@ export default function Chat() {
         setUser(user);
         loadUserConversations(user.uid);
       } else {
-        window.location.href = "https://lautobranding.com.br/area-de-membros";
+        // 🔥 Aguarda 3 segundos antes de redirecionar para evitar erros de carregamento
+        setTimeout(() => {
+          if (!user) {
+            window.location.href = "https://lautobranding.com.br/area-de-membros";
+          }
+        }, 3000);
       }
     });
     return () => unsubscribe();
@@ -79,9 +84,9 @@ export default function Chat() {
 
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // 🔥 Passa o token no header
+          "Authorization": `Bearer ${token}`, // 🔥 Passa o token no header
         },
         body: JSON.stringify({
           query: input,
@@ -100,7 +105,6 @@ export default function Chat() {
 
       const botMessage = { role: "bot", content: cleanText(data.response) };
       setMessages((prevMessages) => [...prevMessages, { role: "user", content: input }, botMessage]);
-
     } catch (error) {
       console.error("Erro:", error);
     }
