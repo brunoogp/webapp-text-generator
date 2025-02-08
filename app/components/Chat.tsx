@@ -2,40 +2,35 @@
 
 import React, { useState, useEffect } from "react";
 import { PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../components/firebaseConfig"; // ✅ Verifique se este caminho está correto
+import { auth } from "../components/firebaseConfig"; // 🔥 Certifique-se de que está correto
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Chat() {
   const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true); // 🔥 Evita redirecionamento antes da verificação
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true); // 🔥 Adicionado para evitar redirecionamento antes da verificação
 
+  // 🔍 **Depuração: Verifica se o usuário está autenticado**
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("🔍 Verificando autenticação...");
       if (user) {
         console.log("✅ Usuário autenticado:", user.email);
         setUser(user);
         loadUserConversations(user.uid);
       } else {
-        console.log("❌ Nenhum usuário autenticado.");
+        console.log("❌ Nenhum usuário autenticado. Redirecionando...");
+        window.location.href = "https://lautobranding.com.br/area-de-membros";
       }
-      setLoadingUser(false); // 🔥 Libera a interface após verificação
+      setLoadingUser(false);
     });
 
     return () => unsubscribe();
   }, []);
-
-  // 🔥 Só redireciona se a autenticação já foi carregada e o usuário não estiver autenticado
-  useEffect(() => {
-    if (!loadingUser && !user) {
-      console.log("🔴 Usuário não autenticado, redirecionando...");
-      window.location.href = "https://lautobranding.com.br/area-de-membros";
-    }
-  }, [loadingUser, user]);
 
   const loadUserConversations = async (userId) => {
     const savedConversations = JSON.parse(localStorage.getItem(`conversations_${userId}`) || "[]");
@@ -66,7 +61,6 @@ export default function Chat() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    console.log("🔴 Usuário deslogado.");
     window.location.href = "https://lautobranding.com.br/area-de-membros";
   };
 
@@ -92,9 +86,9 @@ export default function Chat() {
 
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: {
+        headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`, // 🔥 Passa o token no header
+          "Authorization": `Bearer ${token}` // 🔥 Passa o token no header
         },
         body: JSON.stringify({
           query: input,
@@ -113,6 +107,7 @@ export default function Chat() {
 
       const botMessage = { role: "bot", content: cleanText(data.response) };
       setMessages((prevMessages) => [...prevMessages, { role: "user", content: input }, botMessage]);
+
     } catch (error) {
       console.error("Erro:", error);
     }
@@ -121,8 +116,9 @@ export default function Chat() {
     setLoading(false);
   };
 
+  // 🔥 Evita carregar o chat antes da verificação do Firebase
   if (loadingUser) {
-    return <div className="flex justify-center items-center h-screen text-white">🔄 Carregando...</div>; // 🔥 Evita redirecionamento imediato
+    return <div className="flex h-screen w-screen items-center justify-center bg-black text-white">Carregando...</div>;
   }
 
   return (
