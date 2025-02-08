@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { PlusCircle, Send, Clipboard, Moon, Sun } from "lucide-react";
+import { PlusCircle, Send, Clipboard, Moon, Sun, Menu } from "lucide-react";
 
 const CustomAlert = ({ message }) => (
   <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
@@ -18,6 +18,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showCopyAlert, setShowCopyAlert] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -34,6 +35,13 @@ export default function Chat() {
   }, [conversations]);
 
   const cleanText = (text) => text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || activeChat === null) return;
@@ -86,58 +94,46 @@ export default function Chat() {
       <aside className={`w-72 p-4 flex flex-col border-r ${isDarkMode ? "bg-[#141414] border-gray-800" : "bg-white border-gray-200"}`}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold">Axys™</h2>
-          <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full transition-colors">
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-full transition-colors">
+            <Menu size={20} />
           </button>
         </div>
-        <button
-          className={`mt-4 flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg transition-colors ${isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"}`}
-          onClick={createNewConversation}
-        >
-          <PlusCircle size={18} /> Nova conversa
-        </button>
+        {isMenuOpen && (
+          <button
+            className={`mt-4 flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg transition-colors ${isDarkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"}`}
+            onClick={createNewConversation}
+          >
+            <PlusCircle size={18} /> Nova conversa
+          </button>
+        )}
       </aside>
       <div className="flex flex-col flex-1 h-screen relative">
-        {activeChat === null ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-center p-8">
-            <h1 className="text-4xl font-bold mb-4">Bem-vindo ao Axys™</h1>
-            <p className={`text-lg ${isDarkMode ? "text-[#666666]" : "text-gray-500"}`}>Inicie uma nova conversa para começar.</p>
-          </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {conversations[activeChat].messages.map((msg, index) => (
-                <div key={index} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`p-4 rounded-lg max-w-2xl relative group ${msg.role === "user" ? (isDarkMode ? "bg-blue-600" : "bg-blue-500 text-white") : (isDarkMode ? "bg-gray-800" : "bg-gray-100")}`}>
-                    <p className="mb-1">{msg.content}</p>
-                    <div className="text-xs opacity-60 mt-2">{new Date(msg.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</div>
-                    {msg.role === "bot" && (
-                      <button onClick={() => navigator.clipboard.writeText(msg.content) & setShowCopyAlert(true)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Clipboard size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-            <div className={`p-4 border-t ${isDarkMode ? "border-gray-800 bg-[#141414]" : "border-gray-200 bg-white"}`}>
-              <div className="max-w-4xl mx-auto flex gap-4">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Digite sua mensagem..."
-                  className={`flex-1 p-3 rounded-lg resize-none focus:outline-none focus:ring-2 ${isDarkMode ? "bg-gray-800 focus:ring-blue-600" : "bg-gray-100 focus:ring-blue-500"}`}
-                  rows={1}
-                />
-                <button onClick={sendMessage} disabled={loading || !input.trim()} className={`p-3 rounded-lg transition-colors flex items-center justify-center ${loading ? "opacity-50 cursor-not-allowed" : isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"}`}>
-                  <Send size={20} />
-                </button>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {activeChat !== null && conversations[activeChat].messages.map((msg, index) => (
+            <div key={index} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`p-4 rounded-lg max-w-2xl relative group ${msg.role === "user" ? (isDarkMode ? "bg-blue-600" : "bg-blue-500 text-white") : (isDarkMode ? "bg-gray-800" : "bg-gray-100")}`}>
+                <p className="mb-1">{msg.content}</p>
+                <div className="text-xs opacity-60 mt-2">{new Date(msg.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</div>
               </div>
             </div>
-          </>
-        )}
-        {showCopyAlert && <CustomAlert message="Texto copiado com sucesso!" />}
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+        <div className={`p-4 border-t ${isDarkMode ? "border-gray-800 bg-[#141414]" : "border-gray-200 bg-white"}`}>
+          <div className="max-w-4xl mx-auto flex gap-4">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Digite sua mensagem..."
+              className={`flex-1 p-3 rounded-lg resize-none focus:outline-none focus:ring-2 ${isDarkMode ? "bg-gray-800 focus:ring-blue-600" : "bg-gray-100 focus:ring-blue-500"}`}
+              rows={1}
+            />
+            <button onClick={sendMessage} disabled={loading || !input.trim()} className={`p-3 rounded-lg transition-colors flex items-center justify-center ${loading ? "opacity-50 cursor-not-allowed" : isDarkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-500 hover:bg-blue-600"}`}>
+              <Send size={20} />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
