@@ -14,11 +14,9 @@ export default function Chat() {
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
 
-  // 🔥 Corrigindo autenticação persistente
   useEffect(() => {
     const checkAuth = async () => {
       console.log("🔍 Verificando autenticação...");
-
       await setPersistence(auth, browserLocalPersistence);
 
       const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -39,10 +37,8 @@ export default function Chat() {
     checkAuth();
   }, []);
 
-  // 🔥 Garante que uma conversa esteja ativa
   useEffect(() => {
     if (!activeConversation && conversations.length > 0) {
-      console.log("📌 Nenhuma conversa ativa, ativando a primeira...");
       setActiveConversation(conversations[0]);
     }
   }, [conversations]);
@@ -198,6 +194,41 @@ export default function Chat() {
               ))}
             </div>
           </aside>
+
+          {/* 🔥 Mantendo a barra de digitação sempre visível */}
+          <div className="flex flex-col flex-1">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {messages.map((msg, index) => (
+                <div key={index} className={`p-3 rounded-lg max-w-lg ${
+                  msg.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-700 text-white self-start"
+                }`}>
+                  {msg.content}
+                </div>
+              ))}
+              {loading && (
+                <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>
+              )}
+            </div>
+
+            {/* 🔥 Barra de digitação corrigida */}
+            <div className="p-4 bg-gray-900 flex">
+              <input
+                type="text"
+                className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Digite sua mensagem..."
+              />
+              <button
+                className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+                onClick={sendMessage}
+                disabled={loading}
+              >
+                {loading ? "Enviando..." : <Send size={18} />}
+              </button>
+            </div>
+          </div>
         </>
       )}
     </div>
