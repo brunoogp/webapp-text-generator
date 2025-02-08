@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, PlusCircle, Send, Clipboard, Trash2, Edit, Moon, Sun } from "lucide-react";
+import { Menu, PlusCircle, Send, Clipboard, Trash2, Edit, Moon, Sun, ExternalLink } from "lucide-react";
 
 export default function Chat() {
   const [conversations, setConversations] = useState([
@@ -13,6 +13,7 @@ export default function Chat() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [editingTitle, setEditingTitle] = useState(null);
   const [newTitle, setNewTitle] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const cleanText = (text) => {
     return text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
@@ -72,20 +73,30 @@ export default function Chat() {
   };
 
   return (
-    <div className={`flex h-screen w-screen ${isDarkMode ? "bg-black text-white" : "bg-gray-100 text-black"}`}>
-      <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-gray-900" : "bg-gray-200"}`}>
+    <div className={`flex h-screen w-screen ${isDarkMode ? "bg-[#181818] text-white" : "bg-gray-100 text-black"}`}> 
+      <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-[#141414]" : "bg-gray-200"}`}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
           <div className="flex gap-2">
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-gray-700 rounded-full">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <Menu size={24} className="cursor-pointer" />
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 hover:bg-gray-700 rounded-full">
+              <Menu size={24} />
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          {conversations.map((conv, index) => (
+        {isMenuOpen && (
+          <div className="bg-gray-800 p-2 rounded-lg">
+            <a href="https://lautobranding.com.br" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white hover:text-gray-300 transition">
+              <ExternalLink size={16} /> Ir para Lauto Branding
+            </a>
+          </div>
+        )}
+
+        <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
+          {conversations.map((conv) => (
             <div key={conv.id} className={`p-2 rounded-lg flex items-center justify-between cursor-pointer transition ${activeChat === conv.id ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"}`}>
               {editingTitle === conv.id ? (
                 <input
@@ -121,25 +132,17 @@ export default function Chat() {
         {activeChat === null ? (
           <div className="flex flex-col items-center justify-center flex-1 text-center">
             <h1 className="text-3xl font-semibold">Bem-vindo ao Axys™</h1>
-            <p className="text-gray-400">Inicie uma nova conversa para começar.</p>
+            <p className="text-[#666666]">Inicie uma nova conversa para começar.</p>
           </div>
         ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {conversations[activeChat].messages.map((msg, index) => (
-                <div key={index} className={`p-3 rounded-lg max-w-lg relative ${msg.role === "user" ? "bg-gray-700 text-white self-end ml-auto" : "bg-gray-600 text-white self-start"}`}>
-                  {msg.content}
-                  {msg.role === "bot" && <Clipboard size={16} className="absolute top-1 right-2 cursor-pointer" onClick={() => copyToClipboard(msg.content)} />}
-                </div>
-              ))}
-              {loading && <div className="p-3 bg-gray-600 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
-            </div>
-
-            <div className="p-4 flex w-full bg-gray-800">
-              <input type="text" className="flex-1 bg-gray-700 text-white p-3 rounded-lg" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="Digite sua mensagem..." />
-              <button className="ml-2 bg-gray-600 text-white px-4 py-2 rounded-lg" onClick={sendMessage}><Send size={18} /></button>
-            </div>
-          </>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {conversations[activeChat].messages.map((msg, index) => (
+              <div key={index} className={`p-3 rounded-lg max-w-lg relative ${msg.role === "user" ? "bg-gray-700 text-white self-end ml-auto" : "bg-gray-600 text-white self-start"}`}>
+                {msg.content}
+                {msg.role === "bot" && <Clipboard size={16} className="absolute top-1 right-2 cursor-pointer" onClick={() => copyToClipboard(msg.content)} />}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
