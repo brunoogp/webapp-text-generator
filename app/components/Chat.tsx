@@ -4,12 +4,12 @@ import { useState } from "react";
 import { Menu, PlusCircle, Send, Clipboard, Moon, Sun } from "lucide-react";
 
 export default function Chat() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[][]>([[]]);
+  const [conversations, setConversations] = useState<{ id: number; title: string; messages: { role: string; content: string }[] }[]>([
+    { id: 0, title: "Conversa 1", messages: [] },
+  ]);
+  const [activeChat, setActiveChat] = useState(0);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
-  const [activeChat, setActiveChat] = useState(0);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true); // 🌗 Alternância entre modo claro e escuro
 
   // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
@@ -20,19 +20,16 @@ export default function Chat() {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMessages = [...messages];
-    newMessages[activeChat] = [...newMessages[activeChat], { role: "user", content: input }];
-    setMessages(newMessages);
+    const updatedConversations = [...conversations];
+    updatedConversations[activeChat].messages.push({ role: "user", content: input });
+    setConversations(updatedConversations);
     setLoading(true);
 
     try {
       const response = await fetch("/api/dify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: input,
-          conversation_id: conversationId,
-        }),
+        body: JSON.stringify({ query: input }),
       });
 
       const data = await response.json();
@@ -42,15 +39,9 @@ export default function Chat() {
         return;
       }
 
-      // ✅ Aplica limpeza no texto antes de exibir na interface
       const cleanedResponse = cleanText(data.response);
-
-      newMessages[activeChat] = [...newMessages[activeChat], { role: "bot", content: cleanedResponse }];
-      setMessages([...newMessages]);
-
-      if (data.conversation_id) {
-        setConversationId(data.conversation_id); // ✅ Mantém o contexto da conversa
-      }
+      updatedConversations[activeChat].messages.push({ role: "bot", content: cleanedResponse });
+      setConversations([...updatedConversations]);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
     }
@@ -71,7 +62,7 @@ export default function Chat() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
           <div className="flex gap-2">
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-gray-800 rounded-full">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-gray-700 rounded-full">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
             <Menu size={24} className="cursor-pointer" />
@@ -79,27 +70,25 @@ export default function Chat() {
         </div>
 
         <button
-          className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
+          className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
           onClick={() => {
-            setHistory([...history, `Conversa ${history.length + 1}`]);
-            setMessages([...messages, []]); // ✅ Mantém histórico de mensagens por conversa
-            setActiveChat(history.length);
-            setConversationId(null);
+            setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
+            setActiveChat(conversations.length);
           }}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
 
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {history.map((item, index) => (
+          {conversations.map((conv, index) => (
             <div
-              key={index}
+              key={conv.id}
               className={`p-2 rounded-lg cursor-pointer transition ${
-                activeChat === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
+                activeChat === index ? "bg-gray-600 text-white" : "bg-gray-800 hover:bg-gray-700"
               }`}
               onClick={() => setActiveChat(index)}
             >
-              {item}
+              {conv.title}
             </div>
           ))}
         </div>
@@ -108,13 +97,13 @@ export default function Chat() {
       {/* Área do Chat */}
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages[activeChat].map((msg, index) => (
+          {conversations[activeChat].messages.map((msg, index) => (
             <div
               key={index}
               className={`p-3 rounded-lg max-w-lg relative ${
                 msg.role === "user"
-                  ? "bg-blue-500 text-white self-end ml-auto"
-                  : "bg-gray-700 text-white self-start"
+                  ? "bg-blue-600 text-white self-end ml-auto"
+                  : "bg-gray-600 text-white self-start"
               }`}
             >
               {msg.content}
@@ -128,16 +117,17 @@ export default function Chat() {
               )}
             </div>
           ))}
-          {loading && <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
+          {loading && <div className="p-3 bg-gray-600 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
         {/* Campo de Entrada */}
-        <div className={`p-4 flex w-full ${isDarkMode ? "bg-gray-900" : "bg-gray-300"}`}>
+        <div className={`p-4 flex w-full ${isDarkMode ? "bg-gray-800" : "bg-gray-300"}`}>
           <input
             type="text"
-            className={`flex-1 p-3 rounded-lg focus:outline-none ${isDarkMode ? "bg-gray-800 text-white" : "bg-gray-100 text-black"}`}
+            className={`flex-1 p-3 rounded-lg focus:outline-none ${isDarkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"}`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()} // ✅ Envio com Enter
             placeholder="Digite sua mensagem..."
           />
           <button
