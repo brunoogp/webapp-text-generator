@@ -72,67 +72,67 @@ export default function Chat() {
   };
 
   return (
-    <div className={`flex h-screen w-screen ${isDarkMode ? "bg-black text-white" : "bg-gray-100 text-black"}`}> 
-      <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-gray-900" : "bg-gray-200"}`}> 
-        <div className="flex items-center justify-between mb-4"> 
-          <h2 className="text-lg font-semibold">Axys™</h2> 
-          <div className="flex gap-2"> 
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-gray-700 rounded-full"> 
-              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />} 
-            </button> 
-            <Menu size={24} className="cursor-pointer" /> 
-          </div> 
+    <div className={`flex h-screen w-screen ${isDarkMode ? "bg-black text-white" : "bg-gray-100 text-black"}`}>
+      <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-gray-900" : "bg-gray-200"}`}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Axys™</h2>
+          <div className="flex gap-2">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-gray-700 rounded-full">
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <Menu size={24} className="cursor-pointer" />
+          </div>
         </div>
 
-        <button 
-          className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition" 
+        <button
+          className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
           onClick={() => {
             setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
             setActiveChat(conversations.length);
           }}
-        > 
-          <PlusCircle size={18} /> Nova conversa 
+        >
+          <PlusCircle size={18} /> Nova conversa
         </button>
 
-        <div className="mt-4 space-y-2 flex-1 overflow-y-auto"> 
+        <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
           {conversations.map((conv) => (
-            <div key={conv.id} className={`p-2 rounded-lg flex items-center justify-between cursor-pointer transition ${activeChat === conv.id ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"}`}> 
+            <div key={conv.id} className={`p-2 rounded-lg flex items-center justify-between cursor-pointer transition ${activeChat === conv.id ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"}`}>
               {editingTitle === conv.id ? (
-                <input 
-                  className="bg-transparent text-white border-b border-gray-400 focus:outline-none" 
-                  value={newTitle} 
-                  onChange={(e) => setNewTitle(e.target.value)} 
-                  onBlur={() => renameConversation(conv.id)} 
-                  autoFocus 
+                <input
+                  className="bg-transparent text-white border-b border-gray-400 focus:outline-none"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  onBlur={() => renameConversation(conv.id)}
+                  autoFocus
                 />
               ) : (
                 <span onClick={() => setActiveChat(conv.id)}>{conv.title}</span>
-              )} 
-              <div className="flex gap-2"> 
-                <Edit size={16} className="cursor-pointer" onClick={() => setEditingTitle(conv.id)} /> 
-                <Trash2 size={16} className="cursor-pointer text-red-500" onClick={() => deleteConversation(conv.id)} /> 
-              </div> 
-            </div> 
-          ))} 
-        </div> 
+              )}
+              <div className="flex gap-2">
+                <Edit size={16} className="cursor-pointer" onClick={() => setEditingTitle(conv.id)} />
+                <Trash2 size={16} className="cursor-pointer text-red-500" onClick={() => deleteConversation(conv.id)} />
+              </div>
+            </div>
+          ))}
+        </div>
       </aside>
 
-      <div className="flex flex-col flex-1 h-screen"> 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4"> 
+      <div className="flex flex-col flex-1 h-screen">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {conversations[activeChat].messages.map((msg, index) => (
-            <div key={index} className={`p-3 rounded-lg max-w-lg relative ${msg.role === "user" ? "bg-gray-700 text-white self-end" : "bg-gray-600 text-white self-start"}`}> 
-              {msg.content} 
-              {msg.role === "bot" && <Clipboard size={16} className="absolute top-1 right-2 cursor-pointer" onClick={() => copyToClipboard(msg.content)} />} 
-            </div> 
-          ))} 
-          {loading && <div className="p-3 bg-gray-600 text-white rounded-lg max-w-lg self-start">Digitando...</div>} 
+            <div key={index} className={`p-3 rounded-lg max-w-lg relative ${msg.role === "user" ? "bg-gray-700 text-white self-end ml-auto" : "bg-gray-600 text-white self-start"}`}>
+              {msg.content}
+              {msg.role === "bot" && <Clipboard size={16} className="absolute top-1 right-2 cursor-pointer" onClick={() => copyToClipboard(msg.content)} />}
+            </div>
+          ))}
+          {loading && <div className="p-3 bg-gray-600 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
-        <div className="p-4 flex w-full bg-gray-800"> 
-          <input type="text" className="flex-1 bg-gray-700 text-white p-3 rounded-lg" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="Digite sua mensagem..." /> 
-          <button className="ml-2 bg-gray-600 text-white px-4 py-2 rounded-lg" onClick={sendMessage}><Send size={18} /></button> 
-        </div> 
-      </div> 
-    </div> 
-  ); 
+        <div className="p-4 flex w-full bg-gray-800">
+          <input type="text" className="flex-1 bg-gray-700 text-white p-3 rounded-lg focus:outline-none" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="Digite sua mensagem..." />
+          <button className="ml-2 bg-gray-600 text-white px-4 py-2 rounded-lg" onClick={sendMessage}><Send size={18} /></button>
+        </div>
+      </div>
+    </div>
+  );
 }
