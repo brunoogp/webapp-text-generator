@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../components/firebaseConfig"; // 🔥 Importando corretamente
+import { auth } from "../components/firebaseConfig";
 import { onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 export default function Chat() {
@@ -18,7 +18,7 @@ export default function Chat() {
     const checkAuth = async () => {
       console.log("🔍 Verificando autenticação...");
 
-      await setPersistence(auth, browserLocalPersistence); // 🔥 Mantém o login salvo
+      await setPersistence(auth, browserLocalPersistence);
 
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         if (user) {
@@ -26,8 +26,8 @@ export default function Chat() {
           setUser(user);
           loadUserConversations(user.uid);
         } else {
-          console.log("❌ Nenhum usuário autenticado. Redirecionando...");
-         
+          console.log("❌ Nenhum usuário autenticado.");
+          setUser(null); // 🔥 Permitir chat mesmo sem login
         }
         setLoadingUser(false);
       });
@@ -38,7 +38,7 @@ export default function Chat() {
     checkAuth();
   }, []);
 
-  const loadUserConversations = async (userId) => {
+  const loadUserConversations = (userId) => {
     const savedConversations = JSON.parse(localStorage.getItem(`conversations_${userId}`) || "[]");
     setConversations(savedConversations);
     if (savedConversations.length > 0) {
@@ -47,21 +47,20 @@ export default function Chat() {
   };
 
   const createNewConversation = () => {
-    if (!user) return;
-
     const newConversation = {
       id: Date.now().toString(),
       title: `Conversa ${conversations.length + 1}`,
       messages: [],
-      userId: user.uid,
+      userId: user ? user.uid : "guest", // 🔥 Se não houver usuário, salva como "guest"
     };
     setConversations([newConversation, ...conversations]);
     setActiveConversation(newConversation);
     setMessages([]);
-    saveConversations([newConversation, ...conversations], user.uid);
+    saveConversations([newConversation, ...conversations]);
   };
 
-  const saveConversations = (conversations, userId) => {
+  const saveConversations = (conversations) => {
+    const userId = user ? user.uid : "guest";
     localStorage.setItem(`conversations_${userId}`, JSON.stringify(conversations));
   };
 
@@ -75,31 +74,29 @@ export default function Chat() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeConversation || !user) return;
+    if (!input.trim() || !activeConversation) return;
 
     setLoading(true);
 
     try {
-      const currentUser = auth.currentUser;
-
-      if (!currentUser) {
-        console.error("Usuário não autenticado.");
-        setLoading(false);
-        return;
+      let token = null;
+      if (user) {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          token = await currentUser.getIdToken();
+        }
       }
-
-      const token = await currentUser.getIdToken(); // 🔥 Obtém o token JWT do Firebase
 
       const response = await fetch("/api/dify", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // 🔥 Passa o token no header
+          ...(token && { "Authorization": `Bearer ${token}` }) // 🔥 Só adiciona token se houver usuário logado
         },
         body: JSON.stringify({
           query: input,
           conversation_id: activeConversation.id,
-          user_id: user.uid,
+          user_id: user ? user.uid : "guest", // 🔥 Permite mensagens sem login
         }),
       });
 
@@ -114,6 +111,14 @@ export default function Chat() {
       const botMessage = { role: "bot", content: cleanText(data.response) };
       setMessages((prevMessages) => [...prevMessages, { role: "user", content: input }, botMessage]);
 
+      // Atualiza a conversa no localStorage
+      const updatedConversations = conversations.map((conv) =>
+        conv.id === activeConversation.id ? { ...conv, messages: [...conv.messages, { role: "user", content: input }, botMessage] } : conv
+      );
+
+      setConversations(updatedConversations);
+      saveConversations(updatedConversations);
+      
     } catch (error) {
       console.error("Erro:", error);
     }
@@ -133,9 +138,11 @@ export default function Chat() {
           <aside className="w-64 bg-gray-950 p-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Axys™</h2>
-              <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
-                <LogOut size={20} />
-              </button>
+              {user && (
+                <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
+                  <LogOut size={20} />
+                </button>
+              )}
             </div>
 
             <button
@@ -186,13 +193,12 @@ export default function Chat() {
                 className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={activeConversation ? "Digite sua mensagem..." : "Selecione ou inicie uma conversa"}
-                disabled={!activeConversation}
+                placeholder="Digite sua mensagem..."
               />
               <button
                 className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
                 onClick={sendMessage}
-                disabled={loading || !activeConversation}
+                disabled={loading}
               >
                 {loading ? "Enviando..." : <Send size={18} />}
               </button>
