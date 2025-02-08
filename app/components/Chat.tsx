@@ -1,18 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, PlusCircle, Send, Clipboard, Moon, Sun } from "lucide-react";
+import { Menu, PlusCircle, Send, Clipboard, Trash2, Edit, Moon, Sun, Download } from "lucide-react";
+import jsPDF from "jspdf";
 
 export default function Chat() {
   const [conversations, setConversations] = useState([
-    { id: 0, title: "Conversa 1", messages: [] },
+    { id: 0, title: "Conversa 1", messages: [] }
   ]);
   const [activeChat, setActiveChat] = useState(0);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [editingTitle, setEditingTitle] = useState(null);
+  const [newTitle, setNewTitle] = useState("");
 
-  const cleanText = (text) => text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+  const cleanText = (text) => {
+    return text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -30,7 +35,6 @@ export default function Chat() {
       });
 
       const data = await response.json();
-
       if (data.error) {
         console.error("Erro da API:", data.error);
         return;
@@ -52,9 +56,37 @@ export default function Chat() {
     alert("Copiado para a área de transferência!");
   };
 
+  const deleteConversation = (id) => {
+    if (conversations.length === 1) return;
+    setConversations(conversations.filter((conv) => conv.id !== id));
+    setActiveChat(0);
+  };
+
+  const renameConversation = (id) => {
+    setConversations(
+      conversations.map((conv) =>
+        conv.id === id ? { ...conv, title: newTitle || conv.title } : conv
+      )
+    );
+    setEditingTitle(null);
+    setNewTitle("");
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    doc.setFont("helvetica");
+    doc.text("Resumo da Conversa", 20, 20);
+    let y = 30;
+    conversations[activeChat].messages.forEach((msg) => {
+      doc.text(`${msg.role === "user" ? "Você" : "Assistente"}: ${msg.content}`, 20, y);
+      y += 10;
+    });
+    doc.save("conversa.pdf");
+  };
+
   return (
-    <div className={`flex h-screen w-screen ${isDarkMode ? "bg-[#101010] text-white" : "bg-gray-100 text-black"}`}>
-      <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-[#1A1A1A]" : "bg-gray-200"}`}>
+    <div className={`flex h-screen w-screen ${isDarkMode ? "bg-black text-white" : "bg-gray-100 text-black"}`}>
+      <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-gray-900" : "bg-gray-200"}`}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
           <div className="flex gap-2">
@@ -66,7 +98,7 @@ export default function Chat() {
         </div>
 
         <button
-          className="flex items-center gap-2 bg-[#252525] text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
+          className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
           onClick={() => {
             setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
             setActiveChat(conversations.length);
@@ -76,15 +108,23 @@ export default function Chat() {
         </button>
 
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {conversations.map((conv, index) => (
-            <div
-              key={conv.id}
-              className={`p-2 rounded-lg cursor-pointer transition ${
-                activeChat === index ? "bg-gray-600 text-white" : "bg-gray-800 hover:bg-gray-700"
-              }`}
-              onClick={() => setActiveChat(index)}
-            >
-              {conv.title}
+          {conversations.map((conv) => (
+            <div key={conv.id} className={`p-2 rounded-lg flex items-center justify-between cursor-pointer transition ${activeChat === conv.id ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"}`}>
+              {editingTitle === conv.id ? (
+                <input
+                  className="bg-transparent text-white border-b border-gray-400 focus:outline-none"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  onBlur={() => renameConversation(conv.id)}
+                  autoFocus
+                />
+              ) : (
+                <span onClick={() => setActiveChat(conv.id)}>{conv.title}</span>
+              )}
+              <div className="flex gap-2">
+                <Edit size={16} className="cursor-pointer" onClick={() => setEditingTitle(conv.id)} />
+                <Trash2 size={16} className="cursor-pointer text-red-500" onClick={() => deleteConversation(conv.id)} />
+              </div>
             </div>
           ))}
         </div>
@@ -93,44 +133,18 @@ export default function Chat() {
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {conversations[activeChat].messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`p-3 rounded-lg max-w-lg relative ${
-                msg.role === "user"
-                  ? isDarkMode ? "bg-[#303030] text-white self-end" : "bg-gray-300 text-black self-end"
-                  : isDarkMode ? "bg-[#252525] text-white self-start" : "bg-gray-200 text-black self-start"
-              }`}
-            >
+            <div key={index} className={`p-3 rounded-lg max-w-lg relative ${msg.role === "user" ? "bg-gray-700 text-white self-end ml-auto" : "bg-gray-600 text-white self-start"}`}>
               {msg.content}
-              {msg.role === "bot" && (
-                <button
-                  className="absolute top-1 right-2 text-gray-300 hover:text-white transition"
-                  onClick={() => copyToClipboard(msg.content)}
-                >
-                  <Clipboard size={16} />
-                </button>
-              )}
+              {msg.role === "bot" && <Clipboard size={16} className="absolute top-1 right-2 cursor-pointer" onClick={() => copyToClipboard(msg.content)} />}
             </div>
           ))}
           {loading && <div className="p-3 bg-gray-600 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
-        <div className={`p-4 flex w-full ${isDarkMode ? "bg-[#202020]" : "bg-gray-300"}`}>
-          <input
-            type="text"
-            className={`flex-1 p-3 rounded-lg focus:outline-none ${isDarkMode ? "bg-[#252525] text-white" : "bg-gray-100 text-black"}`}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            placeholder="Digite sua mensagem..."
-          />
-          <button
-            className="ml-2 bg-[#303030] text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
-            onClick={sendMessage}
-            disabled={loading}
-          >
-            {loading ? "Enviando..." : <Send size={18} />}
-          </button>
+        <div className="p-4 flex w-full bg-gray-800">
+          <button className="mr-2 bg-gray-600 text-white px-4 py-2 rounded-lg" onClick={generatePDF}><Download size={18} /></button>
+          <input type="text" className="flex-1 bg-gray-700 text-white p-3 rounded-lg" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="Digite sua mensagem..." />
+          <button className="ml-2 bg-gray-600 text-white px-4 py-2 rounded-lg" onClick={sendMessage}><Send size={18} /></button>
         </div>
       </div>
     </div>
