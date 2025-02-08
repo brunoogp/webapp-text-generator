@@ -39,7 +39,7 @@ export default function Chat() {
         }
       } else {
         console.warn("❌ Nenhum usuário autenticado.");
-        window.location.href = "/login"; // Redireciona para a página de login
+        window.location.href = "https://lautobranding.com.br/area-de-membros/"; // Redireciona para a página de login
       }
       setLoadingUser(false);
     });
