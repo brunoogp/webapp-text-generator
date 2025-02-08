@@ -2,34 +2,40 @@
 
 import React, { useState, useEffect } from "react";
 import { PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../components/firebaseConfig"; // 🔥 Certifique-se de que está correto
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "../components/firebaseConfig"; // 🔥 Importando corretamente
+import { onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 export default function Chat() {
   const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true); // 🔥 Adicionado para evitar redirecionamento antes da verificação
 
-  // 🔍 **Depuração: Verifica se o usuário está autenticado**
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const checkAuth = async () => {
       console.log("🔍 Verificando autenticação...");
-      if (user) {
-        console.log("✅ Usuário autenticado:", user.email);
-        setUser(user);
-        loadUserConversations(user.uid);
-      } else {
-        console.log("❌ Nenhum usuário autenticado. Redirecionando...");
-        window.location.href = "https://lautobranding.com.br/area-de-membros/";
-      }
-      setLoadingUser(false);
-    });
 
-    return () => unsubscribe();
+      await setPersistence(auth, browserLocalPersistence); // 🔥 Mantém o login salvo
+
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user) {
+          console.log("✅ Usuário autenticado:", user.email);
+          setUser(user);
+          loadUserConversations(user.uid);
+        } else {
+          console.log("❌ Nenhum usuário autenticado. Redirecionando...");
+          window.location.href = "https://lautobranding.com.br/area-de-membros";
+        }
+        setLoadingUser(false);
+      });
+
+      return () => unsubscribe();
+    };
+
+    checkAuth();
   }, []);
 
   const loadUserConversations = async (userId) => {
@@ -116,81 +122,84 @@ export default function Chat() {
     setLoading(false);
   };
 
-  // 🔥 Evita carregar o chat antes da verificação do Firebase
-  if (loadingUser) {
-    return <div className="flex h-screen w-screen items-center justify-center bg-black text-white">Carregando...</div>;
-  }
-
   return (
     <div className="flex h-screen w-screen bg-black text-white">
-      <aside className="w-64 bg-gray-950 p-4 flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Axys™</h2>
-          <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
-            <LogOut size={20} />
-          </button>
+      {loadingUser ? (
+        <div className="flex justify-center items-center h-screen">
+          <p>Verificando usuário...</p>
         </div>
-
-        <button
-          className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-          onClick={createNewConversation}
-        >
-          <PlusCircle size={18} /> Nova conversa
-        </button>
-
-        <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {conversations.map((conv) => (
-            <div
-              key={conv.id}
-              className={`p-2 rounded-lg cursor-pointer transition ${
-                activeConversation?.id === conv.id ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
-              }`}
-              onClick={() => {
-                setActiveConversation(conv);
-                setMessages(conv.messages || []);
-              }}
-            >
-              {conv.title}
+      ) : (
+        <>
+          <aside className="w-64 bg-gray-950 p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Axys™</h2>
+              <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
+                <LogOut size={20} />
+              </button>
             </div>
-          ))}
-        </div>
-      </aside>
 
-      <div className="flex flex-col flex-1">
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`p-3 rounded-lg max-w-lg ${
-                msg.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-700 text-white self-start"
-              }`}
+            <button
+              className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
+              onClick={createNewConversation}
             >
-              {msg.content}
-            </div>
-          ))}
-          {loading && (
-            <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>
-          )}
-        </div>
+              <PlusCircle size={18} /> Nova conversa
+            </button>
 
-        <div className="p-4 bg-gray-900 flex">
-          <input
-            type="text"
-            className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={activeConversation ? "Digite sua mensagem..." : "Selecione ou inicie uma conversa"}
-            disabled={!activeConversation}
-          />
-          <button
-            className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
-            onClick={sendMessage}
-            disabled={loading || !activeConversation}
-          >
-            {loading ? "Enviando..." : <Send size={18} />}
-          </button>
-        </div>
-      </div>
+            <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={`p-2 rounded-lg cursor-pointer transition ${
+                    activeConversation?.id === conv.id ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
+                  }`}
+                  onClick={() => {
+                    setActiveConversation(conv);
+                    setMessages(conv.messages || []);
+                  }}
+                >
+                  {conv.title}
+                </div>
+              ))}
+            </div>
+          </aside>
+
+          <div className="flex flex-col flex-1">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg max-w-lg ${
+                    msg.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-700 text-white self-start"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              ))}
+              {loading && (
+                <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>
+              )}
+            </div>
+
+            <div className="p-4 bg-gray-900 flex">
+              <input
+                type="text"
+                className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={activeConversation ? "Digite sua mensagem..." : "Selecione ou inicie uma conversa"}
+                disabled={!activeConversation}
+              />
+              <button
+                className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+                onClick={sendMessage}
+                disabled={loading || !activeConversation}
+              >
+                {loading ? "Enviando..." : <Send size={18} />}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
