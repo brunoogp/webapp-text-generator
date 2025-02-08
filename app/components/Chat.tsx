@@ -27,7 +27,7 @@ export default function Chat() {
           loadUserConversations(user.uid);
         } else {
           console.log("❌ Nenhum usuário autenticado.");
-          setUser(null); // 🔥 Permitir chat mesmo sem login
+          setUser(null);
         }
         setLoadingUser(false);
       });
@@ -51,7 +51,7 @@ export default function Chat() {
       id: Date.now().toString(),
       title: `Conversa ${conversations.length + 1}`,
       messages: [],
-      userId: user ? user.uid : "guest", // 🔥 Se não houver usuário, salva como "guest"
+      userId: user ? user.uid : "guest",
     };
     setConversations([newConversation, ...conversations]);
     setActiveConversation(newConversation);
@@ -74,7 +74,7 @@ export default function Chat() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeConversation) return;
+    if (!input.trim() || !activeConversation) return; // 🔥 Garante que só envia se houver texto
 
     setLoading(true);
 
@@ -91,12 +91,12 @@ export default function Chat() {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          ...(token && { "Authorization": `Bearer ${token}` }) // 🔥 Só adiciona token se houver usuário logado
+          ...(token && { "Authorization": `Bearer ${token}` }) 
         },
         body: JSON.stringify({
           query: input,
           conversation_id: activeConversation.id,
-          user_id: user ? user.uid : "guest", // 🔥 Permite mensagens sem login
+          user_id: user ? user.uid : "guest",
         }),
       });
 
@@ -118,13 +118,20 @@ export default function Chat() {
 
       setConversations(updatedConversations);
       saveConversations(updatedConversations);
-      
+
     } catch (error) {
       console.error("Erro:", error);
     }
 
     setInput("");
     setLoading(false);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" && !loading) {
+      event.preventDefault();
+      sendMessage();
+    }
   };
 
   return (
@@ -194,10 +201,11 @@ export default function Chat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Digite sua mensagem..."
+                onKeyDown={handleKeyDown} // 🔥 Adiciona o evento de pressionar "Enter"
               />
               <button
                 className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
-                onClick={sendMessage}
+                onClick={sendMessage} // 🔥 Agora o botão de enviar funciona
                 disabled={loading}
               >
                 {loading ? "Enviando..." : <Send size={18} />}
