@@ -14,11 +14,12 @@ export default function Chat() {
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
 
+  // 🔥 Corrigindo autenticação persistente
   useEffect(() => {
     const checkAuth = async () => {
       console.log("🔍 Verificando autenticação...");
 
-      await setPersistence(auth, browserLocalPersistence);
+      await setPersistence(auth, browserLocalPersistence); // 🔥 Garante que a sessão do usuário persista
 
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         if (user) {
@@ -26,7 +27,7 @@ export default function Chat() {
           setUser(user);
           loadUserConversations(user.uid);
         } else {
-          console.log("❌ Nenhum usuário autenticado.");
+          console.warn("❌ Nenhum usuário autenticado.");
           setUser(null);
         }
         setLoadingUser(false);
@@ -37,6 +38,14 @@ export default function Chat() {
 
     checkAuth();
   }, []);
+
+  // 🔥 Garante que uma conversa esteja ativa
+  useEffect(() => {
+    if (!activeConversation && conversations.length > 0) {
+      console.log("📌 Nenhuma conversa ativa, ativando a primeira...");
+      setActiveConversation(conversations[0]);
+    }
+  }, [conversations]);
 
   const loadUserConversations = (userId) => {
     const savedConversations = JSON.parse(localStorage.getItem(`conversations_${userId}`) || "[]");
@@ -74,8 +83,14 @@ export default function Chat() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeConversation) {
-      console.warn("⚠️ Nenhuma conversa ativa ou mensagem vazia.");
+    if (!input.trim()) {
+      console.warn("⚠️ Mensagem vazia, não será enviada.");
+      return;
+    }
+
+    if (!activeConversation) {
+      console.warn("⚠️ Nenhuma conversa ativa, criando nova...");
+      createNewConversation();
       return;
     }
 
@@ -105,12 +120,10 @@ export default function Chat() {
         }),
       });
 
-      console.log("📩 Resposta da API recebida:", response);
-
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("❌ Erro ao processar resposta da API:", data);
+        console.error("❌ Erro da API:", data);
         setMessages([...messages, { role: "bot", content: `Erro: ${data.error || "Resposta inválida"}` }]);
         setLoading(false);
         return;
@@ -189,34 +202,21 @@ export default function Chat() {
           <div className="flex flex-col flex-1">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg max-w-lg ${
-                    msg.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-700 text-white self-start"
-                  }`}
-                >
+                <div key={index} className={`p-3 rounded-lg max-w-lg ${
+                  msg.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-700 text-white self-start"
+                }`}>
                   {msg.content}
                 </div>
               ))}
-              {loading && (
-                <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>
-              )}
+              {loading && <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
             </div>
 
             <div className="p-4 bg-gray-900 flex">
-              <input
-                type="text"
-                className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Digite sua mensagem..."
-                onKeyDown={handleKeyDown}
-              />
-              <button
-                className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
-                onClick={sendMessage}
-                disabled={loading}
-              >
+              <input type="text" className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
+                value={input} onChange={(e) => setInput(e.target.value)} placeholder="Digite sua mensagem..."
+                onKeyDown={handleKeyDown} />
+              <button className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                onClick={sendMessage} disabled={loading}>
                 {loading ? "Enviando..." : <Send size={18} />}
               </button>
             </div>
