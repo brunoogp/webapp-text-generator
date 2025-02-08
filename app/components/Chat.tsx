@@ -4,19 +4,21 @@ import { useState } from "react";
 import { Menu, PlusCircle, Send, Clipboard, Moon, Sun } from "lucide-react";
 
 export default function Chat() {
-  const [conversations, setConversations] = useState<{ id: number; title: string; messages: { role: string; content: string }[] }[]>([
-    { id: 0, title: "Conversa 1", messages: [] },
-  ]);
+  const [conversations, setConversations] = useState<
+    { id: number; title: string; messages: { role: string; content: string }[] }[]
+  >([{ id: 0, title: "Conversa 1", messages: [] }]);
+  
   const [activeChat, setActiveChat] = useState(0);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true); // 🌗 Alternância entre modo claro e escuro
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
+  // ✅ Limpa espaços desnecessários no texto
   const cleanText = (text: string) => {
     return text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
   };
 
+  // ✅ Enviar mensagem e atualizar estado da conversa ativa
   const sendMessage = async () => {
     if (!input.trim()) return;
 
@@ -50,14 +52,22 @@ export default function Chat() {
     setLoading(false);
   };
 
+  // ✅ Copiar resposta do assistente para área de transferência
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     alert("Copiado para a área de transferência!");
   };
 
+  // ✅ Criar nova conversa sem apagar a anterior
+  const createNewConversation = () => {
+    const newChatId = conversations.length;
+    setConversations([...conversations, { id: newChatId, title: `Conversa ${newChatId + 1}`, messages: [] }]);
+    setActiveChat(newChatId);
+  };
+
   return (
     <div className={`flex h-screen w-screen ${isDarkMode ? "bg-black text-white" : "bg-gray-100 text-black"}`}>
-      {/* Menu Lateral */}
+      {/* 🌍 Menu Lateral */}
       <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-gray-900" : "bg-gray-200"}`}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
@@ -69,22 +79,21 @@ export default function Chat() {
           </div>
         </div>
 
+        {/* ➕ Botão para criar nova conversa */}
         <button
-          className="flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
-          onClick={() => {
-            setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
-            setActiveChat(conversations.length);
-          }}
+          className="flex items-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-500 transition"
+          onClick={createNewConversation}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
 
+        {/* 🔄 Lista de conversas */}
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
           {conversations.map((conv, index) => (
             <div
               key={conv.id}
               className={`p-2 rounded-lg cursor-pointer transition ${
-                activeChat === index ? "bg-gray-600 text-white" : "bg-gray-800 hover:bg-gray-700"
+                activeChat === index ? "bg-blue-700 text-white" : "bg-gray-800 hover:bg-gray-700"
               }`}
               onClick={() => setActiveChat(index)}
             >
@@ -94,7 +103,7 @@ export default function Chat() {
         </div>
       </aside>
 
-      {/* Área do Chat */}
+      {/* 🗨️ Área do Chat */}
       <div className="flex flex-col flex-1 h-screen">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {conversations[activeChat].messages.map((msg, index) => (
@@ -120,7 +129,7 @@ export default function Chat() {
           {loading && <div className="p-3 bg-gray-600 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
-        {/* Campo de Entrada */}
+        {/* 🔤 Campo de Entrada */}
         <div className={`p-4 flex w-full ${isDarkMode ? "bg-gray-800" : "bg-gray-300"}`}>
           <input
             type="text"
