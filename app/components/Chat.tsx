@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../components/firebaseConfig"; // 🔥 Certifique-se de que esse caminho está correto
+import { auth } from "../components/firebaseConfig"; // ✅ Verifique se este caminho está correto
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Chat() {
   const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true); // ✅ Novo estado para evitar redirecionamento precoce
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,20 +16,22 @@ export default function Chat() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setLoadingUser(false); // 🔥 Apenas remove o loading quando a autenticação é confirmada
       if (user) {
         setUser(user);
         loadUserConversations(user.uid);
-      } else {
-        // 🔥 Aguarda 3 segundos antes de redirecionar para evitar erros de carregamento
-        setTimeout(() => {
-          if (!user) {
-            window.location.href = "https://lautobranding.com.br/area-de-membros";
-          }
-        }, 3000);
       }
     });
+
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!loadingUser && !user) {
+      console.log("🔴 Usuário não autenticado, redirecionando...");
+      window.location.href = "https://lautobranding.com.br/area-de-membros"; // ✅ Redireciona apenas quando a verificação termina
+    }
+  }, [loadingUser, user]);
 
   const loadUserConversations = async (userId) => {
     const savedConversations = JSON.parse(localStorage.getItem(`conversations_${userId}`) || "[]");
@@ -59,7 +62,7 @@ export default function Chat() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    window.location.href = "https://lautobranding.com.br/area-de-membros";
+    window.location.href = "https://lautobranding.com.br/area-de-membros"; // 🔥 Certifique-se de que este é o destino correto
   };
 
   const cleanText = (text) => {
