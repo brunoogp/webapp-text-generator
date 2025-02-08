@@ -24,7 +24,7 @@ export default function Chat() {
         loadUserConversations(user.uid);
       } else {
         console.log("❌ Nenhum usuário autenticado. Redirecionando...");
-        window.location.href = "https://lautobranding.com.br/area-de-membros";
+        window.location.href = "https://axys-git-main-lautobrandings-projects.vercel.app/";
       }
       setLoadingUser(false);
     });
