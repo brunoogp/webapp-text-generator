@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../components/firebaseConfig";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useState } from "react";
+import { PlusCircle, Send } from "lucide-react";
 
 interface Message {
   role: "user" | "bot";
@@ -16,36 +14,14 @@ interface Conversation {
 }
 
 export default function Chat() {
-  const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([
     { id: "1", title: "Conversa 1" }
   ]);
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [activeConversation, setActiveConversation] = useState<Conversation>(conversations[0]);
   const [conversationId, setConversationId] = useState<string | null>(null);
-
-  useEffect(() => {
-    console.log("🔍 Verificando autenticação...");
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log("✅ Usuário autenticado:", user.email);
-        setUser(user);
-        // Define a primeira conversa como ativa ao carregar
-        if (conversations.length > 0 && !activeConversation) {
-          setActiveConversation(conversations[0]);
-        }
-      } else {
-        console.warn("❌ Nenhum usuário autenticado.");
-        window.location.href = "https://lautobranding.com.br/area-de-membros/"; // Redireciona para a página de login
-      }
-      setLoadingUser(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   const cleanText = (text: string) => {
     return text
@@ -53,15 +29,6 @@ export default function Chat() {
       .replace(/\s+,/g, ",")
       .replace(/\s+/g, " ")
       .trim();
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "/login";
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-    }
   };
 
   const createNewConversation = () => {
@@ -76,8 +43,7 @@ export default function Chat() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !user || !activeConversation) {
-      console.warn("⚠️ Não é possível enviar a mensagem");
+    if (!input.trim() || !activeConversation) {
       return;
     }
 
@@ -85,19 +51,14 @@ export default function Chat() {
     console.log("🚀 Enviando mensagem:", input);
 
     try {
-      const token = await user.getIdToken();
-      console.log("🔑 Token JWT obtido");
-
       const response = await fetch("/api/dify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           query: input,
           conversation_id: conversationId,
-          user_id: user.uid,
         }),
       });
 
@@ -129,29 +90,11 @@ export default function Chat() {
     }
   };
 
-  if (loadingUser) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-black text-white">
-        <p>Carregando...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null; // O useEffect já cuidará do redirecionamento
-  }
-
   return (
     <div className="flex h-screen w-screen bg-black text-white">
       <aside className="w-64 bg-gray-950 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
-          <button 
-            onClick={handleLogout}
-            className="p-2 hover:bg-gray-800 rounded-full transition-colors"
-          >
-            <LogOut size={20} />
-          </button>
         </div>
 
         <button
