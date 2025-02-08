@@ -7,7 +7,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Chat() {
   const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true); // ✅ Novo estado para evitar redirecionamento precoce
+  const [loadingUser, setLoadingUser] = useState(true); // 🔥 Evita redirecionamento antes da verificação
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,20 +16,24 @@ export default function Chat() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setLoadingUser(false); // 🔥 Apenas remove o loading quando a autenticação é confirmada
       if (user) {
+        console.log("✅ Usuário autenticado:", user.email);
         setUser(user);
         loadUserConversations(user.uid);
+      } else {
+        console.log("❌ Nenhum usuário autenticado.");
       }
+      setLoadingUser(false); // 🔥 Libera a interface após verificação
     });
 
     return () => unsubscribe();
   }, []);
 
+  // 🔥 Só redireciona se a autenticação já foi carregada e o usuário não estiver autenticado
   useEffect(() => {
     if (!loadingUser && !user) {
       console.log("🔴 Usuário não autenticado, redirecionando...");
-      window.location.href = "https://lautobranding.com.br/area-de-membros"; // ✅ Redireciona apenas quando a verificação termina
+      window.location.href = "https://lautobranding.com.br/area-de-membros";
     }
   }, [loadingUser, user]);
 
@@ -62,7 +66,8 @@ export default function Chat() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    window.location.href = "https://lautobranding.com.br/area-de-membros"; // 🔥 Certifique-se de que este é o destino correto
+    console.log("🔴 Usuário deslogado.");
+    window.location.href = "https://lautobranding.com.br/area-de-membros";
   };
 
   const cleanText = (text) => {
@@ -115,6 +120,10 @@ export default function Chat() {
     setInput("");
     setLoading(false);
   };
+
+  if (loadingUser) {
+    return <div className="flex justify-center items-center h-screen text-white">🔄 Carregando...</div>; // 🔥 Evita redirecionamento imediato
+  }
 
   return (
     <div className="flex h-screen w-screen bg-black text-white">
