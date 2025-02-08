@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { PlusCircle, Send, LogOut } from "lucide-react";
-import { auth } from "../components/firebaseConfig";
-import { onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { auth } from "../components/firebaseConfig"; // 🔥 Certifique-se de que esse caminho está correto
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 export default function Chat() {
   const [user, setUser] = useState(null);
@@ -11,71 +11,33 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversations, setConversations] = useState([]);
-  const [activeConversation, setActiveConversation] = useState(null);
+  const [conversations, setConversations] = useState(["Conversa 1"]);
+  const [activeConversation, setActiveConversation] = useState(0);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      console.log("🔍 Verificando autenticação...");
-      await setPersistence(auth, browserLocalPersistence);
+    console.log("🔍 Verificando autenticação...");
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("✅ Usuário autenticado:", user.email);
+        setUser(user);
+      } else {
+        console.warn("❌ Nenhum usuário autenticado.");
+        setUser(null);
+      }
+      setLoadingUser(false);
+    });
 
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if (user) {
-          console.log("✅ Usuário autenticado:", user.email);
-          setUser(user);
-          loadUserConversations(user.uid);
-        } else {
-          console.warn("❌ Nenhum usuário autenticado.");
-          setUser(null);
-        }
-        setLoadingUser(false);
-      });
-
-      return () => unsubscribe();
-    };
-
-    checkAuth();
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!activeConversation && conversations.length > 0) {
-      setActiveConversation(conversations[0]);
-    }
-  }, [conversations]);
-
-  const loadUserConversations = (userId) => {
-    const savedConversations = JSON.parse(localStorage.getItem(`conversations_${userId}`) || "[]");
-    setConversations(savedConversations);
-    if (savedConversations.length > 0) {
-      setActiveConversation(savedConversations[0]);
-    }
-  };
-
-  const createNewConversation = () => {
-    const newConversation = {
-      id: Date.now().toString(),
-      title: `Conversa ${conversations.length + 1}`,
-      messages: [],
-      userId: user ? user.uid : "guest",
-    };
-    setConversations([newConversation, ...conversations]);
-    setActiveConversation(newConversation);
-    setMessages([]);
-    saveConversations([newConversation, ...conversations]);
-  };
-
-  const saveConversations = (conversations) => {
-    const userId = user ? user.uid : "guest";
-    localStorage.setItem(`conversations_${userId}`, JSON.stringify(conversations));
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    window.location.href = "https://lautobranding.com.br/area-de-membros";
-  };
-
-  const cleanText = (text) => {
-    return text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+  // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
+  const cleanText = (text: string) => {
+    return text
+      .replace(/\s+\./g, ".") // Remove espaços antes de pontos finais
+      .replace(/\s+,/g, ",")  // Remove espaços antes de vírgulas
+      .replace(/\s+/g, " ")   // Substitui múltiplos espaços seguidos por um único espaço
+      .trim();                // Remove espaços no início e no fim
   };
 
   const sendMessage = async () => {
@@ -84,14 +46,8 @@ export default function Chat() {
       return;
     }
 
-    if (!activeConversation) {
-      console.warn("⚠️ Nenhuma conversa ativa, criando nova...");
-      createNewConversation();
-      return;
-    }
-
     if (!user) {
-      console.error("❌ Nenhum usuário autenticado. Cancelando envio.");
+      console.error("❌ Nenhum usuário autenticado no Firebase.");
       return;
     }
 
@@ -99,25 +55,18 @@ export default function Chat() {
     console.log("🚀 Enviando mensagem:", input);
 
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        console.error("❌ Usuário não autenticado no Firebase.");
-        setLoading(false);
-        return;
-      }
-
-      const token = await currentUser.getIdToken();
+      const token = await user.getIdToken();
       console.log("🔑 Token JWT obtido:", token);
 
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           query: input,
-          conversation_id: activeConversation.id,
+          conversation_id: conversationId,
           user_id: user.uid,
         }),
       });
@@ -134,28 +83,18 @@ export default function Chat() {
       console.log("✅ Resposta da API:", data);
 
       const botMessage = { role: "bot", content: cleanText(data.response) };
-      setMessages((prevMessages) => [...prevMessages, { role: "user", content: input }, botMessage]);
+      setMessages([...messages, { role: "user", content: input }, botMessage]);
 
-      const updatedConversations = conversations.map((conv) =>
-        conv.id === activeConversation.id ? { ...conv, messages: [...conv.messages, { role: "user", content: input }, botMessage] } : conv
-      );
-
-      setConversations(updatedConversations);
-      saveConversations(updatedConversations);
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id);
+      }
 
     } catch (error) {
-      console.error("❌ Erro inesperado no envio:", error);
+      console.error("❌ Erro ao enviar mensagem:", error);
     }
 
     setInput("");
     setLoading(false);
-  };
-
-  const handleKeyDown = (event) => {
-    if (event.key === "Enter" && !loading) {
-      event.preventDefault();
-      sendMessage();
-    }
   };
 
   return (
@@ -170,37 +109,43 @@ export default function Chat() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Axys™</h2>
               {user && (
-                <button onClick={handleLogout} className="p-2 hover:bg-gray-800 rounded-full">
+                <button onClick={() => signOut(auth)} className="p-2 hover:bg-gray-800 rounded-full">
                   <LogOut size={20} />
                 </button>
               )}
             </div>
 
             <button className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-              onClick={createNewConversation}>
+              onClick={() => {
+                setActiveConversation(conversations.length);
+                setConversations([...conversations, `Conversa ${conversations.length + 1}`]);
+                setMessages([]);
+                setConversationId(null);
+              }}>
               <PlusCircle size={18} /> Nova conversa
             </button>
 
             <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-              {conversations.map((conv) => (
-                <div key={conv.id} className={`p-2 rounded-lg cursor-pointer transition ${
-                  activeConversation?.id === conv.id ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
+              {conversations.map((conv, index) => (
+                <div key={index} className={`p-2 rounded-lg cursor-pointer transition ${
+                  activeConversation === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
                 }`} onClick={() => {
-                  setActiveConversation(conv);
-                  setMessages(conv.messages || []);
+                  setActiveConversation(index);
+                  setMessages([]);
+                  setConversationId(null);
                 }}>
-                  {conv.title}
+                  {conv}
                 </div>
               ))}
             </div>
           </aside>
 
-          {/* 🔥 Mantendo a barra de digitação sempre visível */}
+          {/* 🔥 Barra de digitação mantida */}
           <div className="flex flex-col flex-1">
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {messages.map((msg, index) => (
                 <div key={index} className={`p-3 rounded-lg max-w-lg ${
-                  msg.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-700 text-white self-start"
+                  msg.role === "user" ? "bg-blue-500 text-white self-end ml-auto" : "bg-gray-700 text-white self-start"
                 }`}>
                   {msg.content}
                 </div>
@@ -210,14 +155,14 @@ export default function Chat() {
               )}
             </div>
 
-            {/* 🔥 Barra de digitação corrigida */}
+            {/* 🔥 Corrigido para garantir que os botões funcionem */}
             <div className="p-4 bg-gray-900 flex">
               <input
                 type="text"
                 className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 placeholder="Digite sua mensagem..."
               />
               <button
