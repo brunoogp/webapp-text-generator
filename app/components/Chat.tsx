@@ -27,7 +27,7 @@ export default function Chat() {
           loadUserConversations(user.uid);
         } else {
           console.log("❌ Nenhum usuário autenticado. Redirecionando...");
-          window.location.href = "https://lautobranding.com.br/area-de-membros";
+         
         }
         setLoadingUser(false);
       });
