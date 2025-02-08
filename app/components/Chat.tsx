@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { Menu, PlusCircle, Send, Clipboard, Trash2, Edit, Moon, Sun, ExternalLink } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Menu, PlusCircle, Send, Clipboard, Trash2, Edit, Moon, Sun, ExternalLink, MessageSquare } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Chat() {
-  const [conversations, setConversations] = useState([
-    { id: 0, title: "Conversa 1", messages: [] }
-  ]);
+  const [conversations, setConversations] = useState(() => {
+    const saved = localStorage.getItem("conversations");
+    return saved ? JSON.parse(saved) : [
+      { id: 0, title: "Nova conversa", messages: [] }
+    ];
+  });
   const [activeChat, setActiveChat] = useState(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,16 +18,43 @@ export default function Chat() {
   const [editingTitle, setEditingTitle] = useState(null);
   const [newTitle, setNewTitle] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showCopyAlert, setShowCopyAlert] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  // Persistência das conversas
+  useEffect(() => {
+    localStorage.setItem("conversations", JSON.stringify(conversations));
+  }, [conversations]);
+
+  // Auto-scroll para a última mensagem
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversations]);
 
   const cleanText = (text) => {
     return text.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
   const sendMessage = async () => {
     if (!input.trim() || activeChat === null) return;
 
     const updatedConversations = [...conversations];
-    updatedConversations[activeChat].messages.push({ role: "user", content: input });
+    updatedConversations[activeChat].messages.push({ 
+      role: "user", 
+      content: input,
+      timestamp: new Date().toISOString()
+    });
     setConversations(updatedConversations);
     setLoading(true);
 
@@ -41,7 +72,11 @@ export default function Chat() {
       }
 
       const cleanedResponse = cleanText(data.response);
-      updatedConversations[activeChat].messages.push({ role: "bot", content: cleanedResponse });
+      updatedConversations[activeChat].messages.push({ 
+        role: "bot", 
+        content: cleanedResponse,
+        timestamp: new Date().toISOString()
+      });
       setConversations([...updatedConversations]);
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
@@ -51,45 +86,95 @@ export default function Chat() {
     setLoading(false);
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    alert("Copiado para a área de transferência!");
+  const copyToClipboard = async (text) => {
+    await navigator.clipboard.writeText(text);
+    setShowCopyAlert(true);
+    setTimeout(() => setShowCopyAlert(false), 2000);
   };
 
   const deleteConversation = (id) => {
-    if (conversations.length === 1) return;
+    if (conversations.length === 1) {
+      setConversations([{ id: 0, title: "Nova conversa", messages: [] }]);
+      setActiveChat(0);
+      return;
+    }
     setConversations(conversations.filter((conv) => conv.id !== id));
-    setActiveChat(null);
+    setActiveChat(conversations[0].id);
   };
 
   const renameConversation = (id) => {
+    if (!newTitle.trim()) {
+      setEditingTitle(null);
+      setNewTitle("");
+      return;
+    }
+    
     setConversations(
       conversations.map((conv) =>
-        conv.id === id ? { ...conv, title: newTitle || conv.title } : conv
+        conv.id === id ? { ...conv, title: newTitle } : conv
       )
     );
     setEditingTitle(null);
     setNewTitle("");
   };
 
+  const formatTimestamp = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
-    <div className={`flex h-screen w-screen ${isDarkMode ? "bg-[#181818] text-white" : "bg-gray-100 text-black"}`}> 
-      <aside className={`w-64 p-4 flex flex-col ${isDarkMode ? "bg-[#141414]" : "bg-gray-200"}`}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Axys™</h2>
+    <div className={`flex h-screen w-screen ${
+      isDarkMode 
+        ? "bg-[#181818] text-white" 
+        : "bg-gray-50 text-gray-900"
+    }`}>
+      {/* Sidebar */}
+      <aside className={`w-72 p-4 flex flex-col border-r ${
+        isDarkMode 
+          ? "bg-[#141414] border-gray-800" 
+          : "bg-white border-gray-200"
+      }`}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">Axys™</h2>
           <div className="flex gap-2">
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 hover:bg-gray-700 rounded-full">
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2 rounded-full transition-colors ${
+                isDarkMode 
+                  ? "hover:bg-gray-800" 
+                  : "hover:bg-gray-100"
+              }`}
+            >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 hover:bg-gray-700 rounded-full">
-              <Menu size={24} />
+            <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className={`p-2 rounded-full transition-colors ${
+                isDarkMode 
+                  ? "hover:bg-gray-800" 
+                  : "hover:bg-gray-100"
+              }`}
+            >
+              <Menu size={20} />
             </button>
           </div>
         </div>
 
         {isMenuOpen && (
-          <div className="bg-gray-800 p-2 rounded-lg">
-            <a href="https://lautobranding.com.br" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white hover:text-gray-300 transition">
+          <div className={`p-3 rounded-lg mb-4 ${
+            isDarkMode 
+              ? "bg-gray-800" 
+              : "bg-gray-100"
+          }`}>
+            <a 
+              href="https://lautobranding.com.br" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
               <ExternalLink size={16} /> Ir para Lauto Branding
             </a>
           </div>
@@ -97,52 +182,171 @@ export default function Chat() {
 
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
           {conversations.map((conv) => (
-            <div key={conv.id} className={`p-2 rounded-lg flex items-center justify-between cursor-pointer transition ${activeChat === conv.id ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"}`}>
-              {editingTitle === conv.id ? (
-                <input
-                  className="bg-transparent text-white border-b border-gray-400 focus:outline-none"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  onBlur={() => renameConversation(conv.id)}
-                  autoFocus
+            <div 
+              key={conv.id} 
+              className={`p-3 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
+                activeChat === conv.id
+                  ? isDarkMode 
+                    ? "bg-gray-700" 
+                    : "bg-blue-50"
+                  : isDarkMode
+                    ? "hover:bg-gray-800" 
+                    : "hover:bg-gray-100"
+              }`}
+            >
+              <div className="flex items-center gap-2 flex-1">
+                <MessageSquare size={16} />
+                {editingTitle === conv.id ? (
+                  <input
+                    className={`w-full bg-transparent border-b focus:outline-none ${
+                      isDarkMode 
+                        ? "border-gray-600" 
+                        : "border-gray-300"
+                    }`}
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    onBlur={() => renameConversation(conv.id)}
+                    onKeyPress={(e) => e.key === "Enter" && renameConversation(conv.id)}
+                    autoFocus
+                  />
+                ) : (
+                  <span 
+                    onClick={() => setActiveChat(conv.id)}
+                    className="flex-1 truncate"
+                  >
+                    {conv.title}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2 ml-2">
+                <Edit 
+                  size={16} 
+                  className="cursor-pointer opacity-60 hover:opacity-100 transition-opacity" 
+                  onClick={() => {
+                    setEditingTitle(conv.id);
+                    setNewTitle(conv.title);
+                  }} 
                 />
-              ) : (
-                <span onClick={() => setActiveChat(conv.id)}>{conv.title}</span>
-              )}
-              <div className="flex gap-2">
-                <Edit size={16} className="cursor-pointer" onClick={() => setEditingTitle(conv.id)} />
-                <Trash2 size={16} className="cursor-pointer text-red-500" onClick={() => deleteConversation(conv.id)} />
+                <Trash2 
+                  size={16} 
+                  className="cursor-pointer text-red-500 opacity-60 hover:opacity-100 transition-opacity" 
+                  onClick={() => deleteConversation(conv.id)} 
+                />
               </div>
             </div>
           ))}
         </div>
 
         <button
-          className="mt-4 flex items-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition"
+          className={`mt-4 flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg transition-colors ${
+            isDarkMode
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
+              : "bg-blue-500 hover:bg-blue-600 text-white"
+          }`}
           onClick={() => {
-            setConversations([...conversations, { id: conversations.length, title: `Conversa ${conversations.length + 1}`, messages: [] }]);
-            setActiveChat(conversations.length);
+            const newId = conversations.length;
+            setConversations([...conversations, { 
+              id: newId, 
+              title: `Nova conversa ${newId + 1}`, 
+              messages: [] 
+            }]);
+            setActiveChat(newId);
           }}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
       </aside>
 
-      <div className="flex flex-col flex-1 h-screen">
+      {/* Main Chat Area */}
+      <div className="flex flex-col flex-1 h-screen relative">
         {activeChat === null ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-center">
-            <h1 className="text-3xl font-semibold">Bem-vindo ao Axys™</h1>
-            <p className="text-[#666666]">Inicie uma nova conversa para começar.</p>
+          <div className="flex flex-col items-center justify-center flex-1 text-center p-8">
+            <h1 className="text-4xl font-bold mb-4">Bem-vindo ao Axys™</h1>
+            <p className={`text-lg ${isDarkMode ? "text-[#666666]" : "text-gray-500"}`}>
+              Seu assistente especializado em diferenciação de marca.
+              <br />
+              Inicie uma nova conversa para começar.
+            </p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {conversations[activeChat].messages.map((msg, index) => (
-              <div key={index} className={`p-3 rounded-lg max-w-lg relative ${msg.role === "user" ? "bg-gray-700 text-white self-end ml-auto" : "bg-gray-600 text-white self-start"}`}>
-                {msg.content}
-                {msg.role === "bot" && <Clipboard size={16} className="absolute top-1 right-2 cursor-pointer" onClick={() => copyToClipboard(msg.content)} />}
+          <>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {conversations[activeChat].messages.map((msg, index) => (
+                <div 
+                  key={index} 
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div className={`p-4 rounded-lg max-w-2xl relative group ${
+                    msg.role === "user"
+                      ? isDarkMode 
+                        ? "bg-blue-600" 
+                        : "bg-blue-500 text-white"
+                      : isDarkMode
+                        ? "bg-gray-800"
+                        : "bg-gray-100"
+                  }`}>
+                    <p className="mb-1">{msg.content}</p>
+                    <div className="text-xs opacity-60 mt-2">
+                      {msg.timestamp && formatTimestamp(msg.timestamp)}
+                    </div>
+                    {msg.role === "bot" && (
+                      <button
+                        onClick={() => copyToClipboard(msg.content)}
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Clipboard size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className={`p-4 border-t ${
+              isDarkMode 
+                ? "border-gray-800 bg-[#141414]" 
+                : "border-gray-200 bg-white"
+            }`}>
+              <div className="max-w-4xl mx-auto flex gap-4">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Digite sua mensagem..."
+                  className={`flex-1 p-3 rounded-lg resize-none focus:outline-none focus:ring-2 ${
+                    isDarkMode
+                      ? "bg-gray-800 focus:ring-blue-600"
+                      : "bg-gray-100 focus:ring-blue-500"
+                  }`}
+                  rows={1}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={loading || !input.trim()}
+                  className={`p-3 rounded-lg transition-colors flex items-center justify-center ${
+                    loading 
+                      ? "opacity-50 cursor-not-allowed" 
+                      : isDarkMode
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-blue-500 hover:bg-blue-600"
+                  }`}
+                >
+                  <Send size={20} />
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          </>
+        )}
+
+        {/* Copy Alert */}
+        {showCopyAlert && (
+          <Alert className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-green-500 text-white">
+            <AlertDescription>
+              Texto copiado com sucesso!
+            </AlertDescription>
+          </Alert>
         )}
       </div>
     </div>
