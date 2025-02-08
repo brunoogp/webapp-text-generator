@@ -1,134 +1,224 @@
-LAYOUT BLACK APROVADO
-
 "use client";
 
-import { useState } from "react";
-import { Menu, PlusCircle, Send } from "lucide-react";
+import { useState, useEffect } from "react";
+import { PlusCircle, Send, LogOut } from "lucide-react";
+import { auth } from "../components/firebaseConfig";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+
+interface Message {
+  role: "user" | "bot";
+  content: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+}
 
 export default function Chat() {
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
-  const [activeChat, setActiveChat] = useState(0);
+  const [conversations, setConversations] = useState<Conversation[]>([
+    { id: "1", title: "Conversa 1" }
+  ]);
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
-  // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
+  useEffect(() => {
+    console.log("🔍 Verificando autenticação...");
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("✅ Usuário autenticado:", user.email);
+        setUser(user);
+        // Define a primeira conversa como ativa ao carregar
+        if (conversations.length > 0 && !activeConversation) {
+          setActiveConversation(conversations[0]);
+        }
+      } else {
+        console.warn("❌ Nenhum usuário autenticado.");
+        window.location.href = "/login"; // Redireciona para a página de login
+      }
+      setLoadingUser(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const cleanText = (text: string) => {
     return text
-      .replace(/\s+\./g, ".") // Remove espaços antes de pontos finais
-      .replace(/\s+,/g, ",")  // Remove espaços antes de vírgulas
-      .replace(/\s+/g, " ")   // Substitui múltiplos espaços seguidos por um único espaço
-      .trim();                // Remove espaços no início e no fim
+      .replace(/\s+\./g, ".")
+      .replace(/\s+,/g, ",")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+    }
+  };
+
+  const createNewConversation = () => {
+    const newConversation = {
+      id: Date.now().toString(),
+      title: `Conversa ${conversations.length + 1}`
+    };
+    setConversations([...conversations, newConversation]);
+    setActiveConversation(newConversation);
+    setMessages([]);
+    setConversationId(null);
   };
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !user || !activeConversation) {
+      console.warn("⚠️ Não é possível enviar a mensagem");
+      return;
+    }
 
-    const newMessages = [...messages, { role: "user", content: input }];
-    setMessages(newMessages);
     setLoading(true);
+    console.log("🚀 Enviando mensagem:", input);
 
     try {
+      const token = await user.getIdToken();
+      console.log("🔑 Token JWT obtido");
+
       const response = await fetch("/api/dify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           query: input,
           conversation_id: conversationId,
+          user_id: user.uid,
         }),
       });
 
-      const data = await response.json();
-
-      if (data.error) {
-        console.error("Erro da API:", data.error);
-        return;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // ✅ Aplica limpeza no texto antes de exibir na interface
-      const cleanedResponse = cleanText(data.response);
+      const data = await response.json();
+      console.log("✅ Resposta recebida:", data);
 
-      setMessages([...newMessages, { role: "bot", content: cleanedResponse }]);
+      const userMessage: Message = { role: "user", content: input };
+      const botMessage: Message = { role: "bot", content: cleanText(data.response) };
+      
+      setMessages(prev => [...prev, userMessage, botMessage]);
 
       if (data.conversation_id) {
-        setConversationId(data.conversation_id); // ✅ Mantém o contexto da conversa
+        setConversationId(data.conversation_id);
       }
-    } catch (error) {
-      console.error("Erro ao enviar mensagem:", error);
-    }
 
-    setInput("");
-    setLoading(false);
+    } catch (error) {
+      console.error("❌ Erro ao enviar mensagem:", error);
+      setMessages(prev => [...prev, {
+        role: "bot",
+        content: "Desculpe, ocorreu um erro ao processar sua mensagem."
+      }]);
+    } finally {
+      setInput("");
+      setLoading(false);
+    }
   };
+
+  if (loadingUser) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-black text-white">
+        <p>Carregando...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // O useEffect já cuidará do redirecionamento
+  }
 
   return (
     <div className="flex h-screen w-screen bg-black text-white">
-      {/* Menu Lateral */}
-      <aside className="w-64 bg-gray-900 p-4 flex flex-col">
+      <aside className="w-64 bg-gray-950 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Axys™</h2>
-          <Menu size={24} className="cursor-pointer" />
+          <button 
+            onClick={handleLogout}
+            className="p-2 hover:bg-gray-800 rounded-full transition-colors"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
+
         <button
+          onClick={createNewConversation}
           className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
-          onClick={() => {
-            setActiveChat(history.length);
-            setHistory([...history, `Conversa ${history.length + 1}`]);
-            setMessages([]);
-            setConversationId(null);
-          }}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
+
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {history.map((item, index) => (
+          {conversations.map((conv) => (
             <div
-              key={index}
+              key={conv.id}
               className={`p-2 rounded-lg cursor-pointer transition ${
-                activeChat === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
+                activeConversation?.id === conv.id ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
               }`}
               onClick={() => {
-                setActiveChat(index);
+                setActiveConversation(conv);
                 setMessages([]);
                 setConversationId(null);
               }}
             >
-              {item}
+              {conv.title}
             </div>
           ))}
         </div>
       </aside>
 
-      {/* Área do Chat */}
-      <div className="flex flex-col flex-1 h-screen">
+      <div className="flex flex-col flex-1">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((msg, index) => (
             <div
               key={index}
               className={`p-3 rounded-lg max-w-lg ${
-                msg.role === "user" ? "bg-blue-500 text-white self-end ml-auto" : "bg-gray-700 text-white self-start"
+                msg.role === "user" 
+                  ? "bg-blue-500 text-white self-end ml-auto" 
+                  : "bg-gray-700 text-white self-start"
               }`}
             >
               {msg.content}
             </div>
           ))}
-          {loading && <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
+          {loading && (
+            <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">
+              Digitando...
+            </div>
+          )}
         </div>
 
-        {/* Campo de Entrada */}
-        <div className="p-4 bg-gray-900 flex w-full">
+        <div className="p-4 bg-gray-900 flex">
           <input
             type="text"
             className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Digite sua mensagem..."
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+            placeholder={activeConversation ? "Digite sua mensagem..." : "Selecione ou crie uma conversa"}
+            disabled={!activeConversation || loading}
           />
           <button
-            className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+            className={`ml-2 px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+              loading || !activeConversation
+                ? "bg-gray-700 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600"
+            }`}
             onClick={sendMessage}
-            disabled={loading}
+            disabled={loading || !activeConversation}
           >
             {loading ? "Enviando..." : <Send size={18} />}
           </button>
