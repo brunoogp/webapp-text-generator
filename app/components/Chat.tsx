@@ -1,76 +1,33 @@
+LAYOUT BLACK APROVADO
+
 "use client";
 
-import { useState, useEffect } from "react";
-import { PlusCircle, Send, Copy, Check } from "lucide-react";
-
-interface Message {
-  role: "user" | "bot";
-  content: string;
-}
-
-interface Conversation {
-  id: string;
-  title: string;
-  messages: Message[];
-}
+import { useState } from "react";
+import { Menu, PlusCircle, Send } from "lucide-react";
 
 export default function Chat() {
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    // Carregar conversas do localStorage
-    const saved = localStorage.getItem("conversations");
-    return saved ? JSON.parse(saved) : [{
-      id: "1",
-      title: "Nova conversa",
-      messages: []
-    }];
-  });
-  const [activeConversation, setActiveConversation] = useState<Conversation>(conversations[0]);
-  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>(["Conversa 1"]);
+  const [activeChat, setActiveChat] = useState(0);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
-  // Salvar conversas no localStorage quando houver mudanças
-  useEffect(() => {
-    localStorage.setItem("conversations", JSON.stringify(conversations));
-  }, [conversations]);
-
-  const createNewConversation = () => {
-    const newConversation = {
-      id: Date.now().toString(),
-      title: `Nova conversa`,
-      messages: []
-    };
-    setConversations(prev => [newConversation, ...prev]);
-    setActiveConversation(newConversation);
-  };
-
-  const updateConversationMessages = (conversationId: string, messages: Message[]) => {
-    setConversations(prev => prev.map(conv => 
-      conv.id === conversationId 
-        ? { ...conv, messages, title: messages[0]?.content.slice(0, 30) || "Nova conversa" }
-        : conv
-    ));
-  };
-
-  const copyToClipboard = async (text: string, messageId: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedMessageId(messageId);
-      setTimeout(() => setCopiedMessageId(null), 2000);
-    } catch (error) {
-      console.error("Erro ao copiar texto:", error);
-    }
+  // ✅ Função para limpar espaços extras e corrigir espaçamentos errados
+  const cleanText = (text: string) => {
+    return text
+      .replace(/\s+\./g, ".") // Remove espaços antes de pontos finais
+      .replace(/\s+,/g, ",")  // Remove espaços antes de vírgulas
+      .replace(/\s+/g, " ")   // Substitui múltiplos espaços seguidos por um único espaço
+      .trim();                // Remove espaços no início e no fim
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeConversation) return;
+    if (!input.trim()) return;
 
-    const userMessage: Message = { role: "user", content: input };
-    const updatedMessages = [...activeConversation.messages, userMessage];
-    updateConversationMessages(activeConversation.id, updatedMessages);
-    
+    const newMessages = [...messages, { role: "user", content: input }];
+    setMessages(newMessages);
     setLoading(true);
-    setInput("");
 
     try {
       const response = await fetch("/api/dify", {
@@ -78,143 +35,103 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: input,
-          conversation_id: activeConversation.id,
+          conversation_id: conversationId,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+
+      if (data.error) {
+        console.error("Erro da API:", data.error);
+        return;
       }
 
-      const data = await response.json();
-      const botMessage: Message = { role: "bot", content: data.response };
-      
-      updateConversationMessages(
-        activeConversation.id, 
-        [...updatedMessages, botMessage]
-      );
+      // ✅ Aplica limpeza no texto antes de exibir na interface
+      const cleanedResponse = cleanText(data.response);
 
+      setMessages([...newMessages, { role: "bot", content: cleanedResponse }]);
+
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id); // ✅ Mantém o contexto da conversa
+      }
     } catch (error) {
-      console.error("❌ Erro ao enviar mensagem:", error);
-      const errorMessage: Message = {
-        role: "bot",
-        content: "Desculpe, ocorreu um erro ao processar sua mensagem."
-      };
-      updateConversationMessages(
-        activeConversation.id,
-        [...updatedMessages, errorMessage]
-      );
-    } finally {
-      setLoading(false);
+      console.error("Erro ao enviar mensagem:", error);
     }
+
+    setInput("");
+    setLoading(false);
   };
 
   return (
-    <div className="flex h-screen bg-zinc-900">
-      {/* Sidebar */}
-      <aside className="w-64 bg-zinc-950 p-4 flex flex-col border-r border-zinc-800">
+    <div className="flex h-screen w-screen bg-black text-white">
+      {/* Menu Lateral */}
+      <aside className="w-64 bg-gray-900 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">Axys™</h2>
+          <h2 className="text-lg font-semibold">Axys™</h2>
+          <Menu size={24} className="cursor-pointer" />
         </div>
-
         <button
-          onClick={createNewConversation}
-          className="flex items-center gap-2 bg-zinc-800 text-white py-3 px-4 rounded-lg hover:bg-zinc-700 transition-all duration-200 shadow-lg"
+          className="flex items-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition"
+          onClick={() => {
+            setActiveChat(history.length);
+            setHistory([...history, `Conversa ${history.length + 1}`]);
+            setMessages([]);
+            setConversationId(null);
+          }}
         >
           <PlusCircle size={18} /> Nova conversa
         </button>
-
         <div className="mt-4 space-y-2 flex-1 overflow-y-auto">
-          {conversations.map((conv) => (
+          {history.map((item, index) => (
             <div
-              key={conv.id}
-              className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                activeConversation?.id === conv.id 
-                  ? "bg-zinc-700 shadow-lg" 
-                  : "bg-zinc-800 hover:bg-zinc-700"
+              key={index}
+              className={`p-2 rounded-lg cursor-pointer transition ${
+                activeChat === index ? "bg-gray-700" : "bg-gray-800 hover:bg-gray-700"
               }`}
-              onClick={() => setActiveConversation(conv)}
+              onClick={() => {
+                setActiveChat(index);
+                setMessages([]);
+                setConversationId(null);
+              }}
             >
-              <p className="text-white text-sm truncate">
-                {conv.title}
-              </p>
+              {item}
             </div>
           ))}
         </div>
       </aside>
 
-      {/* Main Chat Area */}
-      <div className="flex flex-col flex-1">
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {activeConversation.messages.map((msg, index) => (
+      {/* Área do Chat */}
+      <div className="flex flex-col flex-1 h-screen">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.map((msg, index) => (
             <div
-              key={`${index}-${msg.content}`}
-              className={`group flex ${
-                msg.role === "user" ? "justify-end" : "justify-start"
+              key={index}
+              className={`p-3 rounded-lg max-w-lg ${
+                msg.role === "user" ? "bg-blue-500 text-white self-end ml-auto" : "bg-gray-700 text-white self-start"
               }`}
             >
-              <div
-                className={`relative p-4 rounded-lg max-w-[80%] ${
-                  msg.role === "user"
-                    ? "bg-zinc-700 text-white"
-                    : "bg-zinc-800 text-white"
-                }`}
-              >
-                {msg.content}
-                
-                {msg.role === "bot" && (
-                  <button
-                    onClick={() => copyToClipboard(msg.content, `${index}-${msg.content}`)}
-                    className={`absolute -right-10 top-1/2 -translate-y-1/2 p-2 rounded-lg 
-                      transition-all duration-200 ${
-                        copiedMessageId === `${index}-${msg.content}`
-                          ? "bg-green-500 text-white"
-                          : "bg-zinc-700 text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-zinc-600"
-                      }`}
-                  >
-                    {copiedMessageId === `${index}-${msg.content}` ? (
-                      <Check size={16} />
-                    ) : (
-                      <Copy size={16} />
-                    )}
-                  </button>
-                )}
-              </div>
+              {msg.content}
             </div>
           ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-zinc-800 text-white p-4 rounded-lg max-w-[80%]">
-                Digitando...
-              </div>
-            </div>
-          )}
+          {loading && <div className="p-3 bg-gray-700 text-white rounded-lg max-w-lg self-start">Digitando...</div>}
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 bg-zinc-900 border-t border-zinc-800">
-          <div className="max-w-5xl mx-auto flex gap-2">
-            <input
-              type="text"
-              className="flex-1 bg-zinc-800 text-white p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-600 transition-all duration-200"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-              placeholder="Digite sua mensagem..."
-              disabled={loading}
-            />
-            <button
-              onClick={sendMessage}
-              disabled={loading || !input.trim()}
-              className={`px-4 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                loading || !input.trim()
-                  ? "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                  : "bg-white text-black hover:bg-zinc-100"
-              }`}
-            >
-              <Send size={20} />
-            </button>
-          </div>
+        {/* Campo de Entrada */}
+        <div className="p-4 bg-gray-900 flex w-full">
+          <input
+            type="text"
+            className="flex-1 bg-gray-800 text-white p-3 rounded-lg focus:outline-none"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Digite sua mensagem..."
+          />
+          <button
+            className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+            onClick={sendMessage}
+            disabled={loading}
+          >
+            {loading ? "Enviando..." : <Send size={18} />}
+          </button>
         </div>
       </div>
     </div>
