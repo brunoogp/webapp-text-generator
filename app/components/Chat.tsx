@@ -74,9 +74,13 @@ export default function Chat() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeConversation) return; // 🔥 Garante que só envia se houver texto
+    if (!input.trim() || !activeConversation) {
+      console.warn("⚠️ Nenhuma conversa ativa ou mensagem vazia.");
+      return;
+    }
 
     setLoading(true);
+    console.log("🚀 Enviando mensagem:", input);
 
     try {
       let token = null;
@@ -84,6 +88,7 @@ export default function Chat() {
         const currentUser = auth.currentUser;
         if (currentUser) {
           token = await currentUser.getIdToken();
+          console.log("🔑 Token JWT obtido:", token);
         }
       }
 
@@ -100,18 +105,22 @@ export default function Chat() {
         }),
       });
 
+      console.log("📩 Resposta da API recebida:", response);
+
       const data = await response.json();
 
-      if (data.error) {
-        console.error("Erro da API:", data.error);
-        setMessages([...messages, { role: "bot", content: "Erro ao processar a resposta." }]);
+      if (!response.ok) {
+        console.error("❌ Erro ao processar resposta da API:", data);
+        setMessages([...messages, { role: "bot", content: `Erro: ${data.error || "Resposta inválida"}` }]);
+        setLoading(false);
         return;
       }
+
+      console.log("✅ Resposta da API:", data);
 
       const botMessage = { role: "bot", content: cleanText(data.response) };
       setMessages((prevMessages) => [...prevMessages, { role: "user", content: input }, botMessage]);
 
-      // Atualiza a conversa no localStorage
       const updatedConversations = conversations.map((conv) =>
         conv.id === activeConversation.id ? { ...conv, messages: [...conv.messages, { role: "user", content: input }, botMessage] } : conv
       );
@@ -120,7 +129,7 @@ export default function Chat() {
       saveConversations(updatedConversations);
 
     } catch (error) {
-      console.error("Erro:", error);
+      console.error("❌ Erro inesperado no envio:", error);
     }
 
     setInput("");
@@ -201,11 +210,11 @@ export default function Chat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Digite sua mensagem..."
-                onKeyDown={handleKeyDown} // 🔥 Adiciona o evento de pressionar "Enter"
+                onKeyDown={handleKeyDown}
               />
               <button
                 className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
-                onClick={sendMessage} // 🔥 Agora o botão de enviar funciona
+                onClick={sendMessage}
                 disabled={loading}
               >
                 {loading ? "Enviando..." : <Send size={18} />}
